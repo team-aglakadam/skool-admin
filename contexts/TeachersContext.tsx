@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 export type Teacher = {
   id: string
@@ -108,7 +108,22 @@ const dummyTeachers: Teacher[] = [
   }
 ]
 
-export function useTeachers() {
+interface TeachersContextType {
+  teachers: Teacher[]
+  loading: boolean
+  addTeacher: (teacherData: CreateTeacherData) => Promise<{ success: boolean; error?: string }>
+  updateTeacher: (id: string, updates: Partial<Teacher>) => Promise<{ success: boolean; error?: string }>
+  deleteTeacher: (id: string) => Promise<{ success: boolean; error?: string }>
+  getTeacherById: (id: string) => Teacher | undefined
+  searchTeachers: (searchTerm: string) => Teacher[]
+  activeTeachers: Teacher[]
+  inactiveTeachers: Teacher[]
+  totalTeachers: number
+}
+
+const TeachersContext = createContext<TeachersContextType | undefined>(undefined)
+
+export function TeachersProvider({ children }: { children: ReactNode }) {
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -127,6 +142,8 @@ export function useTeachers() {
 
   const addTeacher = async (teacherData: CreateTeacherData): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Adding teacher with data:', teacherData) // Debug log
+      
       const newTeacher: Teacher = {
         ...teacherData,
         id: Date.now().toString(),
@@ -135,9 +152,17 @@ export function useTeachers() {
         updatedAt: new Date().toISOString()
       }
 
-      setTeachers(prev => [newTeacher, ...prev])
+      console.log('New teacher object:', newTeacher) // Debug log
+
+      setTeachers(prev => {
+        const updatedTeachers = [newTeacher, ...prev]
+        console.log('Updated teachers array:', updatedTeachers) // Debug log
+        return updatedTeachers
+      })
+      
       return { success: true }
     } catch (error) {
+      console.error('Error adding teacher:', error) // Debug log
       return { success: false, error: 'Failed to add teacher' }
     }
   }
@@ -179,7 +204,10 @@ export function useTeachers() {
     )
   }
 
-  return {
+  const activeTeachers = teachers.filter(t => t.status === 'active')
+  const inactiveTeachers = teachers.filter(t => t.status === 'inactive')
+
+  const value: TeachersContextType = {
     teachers,
     loading,
     addTeacher,
@@ -187,8 +215,22 @@ export function useTeachers() {
     deleteTeacher,
     getTeacherById,
     searchTeachers,
-    activeTeachers: teachers.filter(t => t.status === 'active'),
-    inactiveTeachers: teachers.filter(t => t.status === 'inactive'),
+    activeTeachers,
+    inactiveTeachers,
     totalTeachers: teachers.length
   }
+
+  return (
+    <TeachersContext.Provider value={value}>
+      {children}
+    </TeachersContext.Provider>
+  )
+}
+
+export function useTeachers() {
+  const context = useContext(TeachersContext)
+  if (context === undefined) {
+    throw new Error('useTeachers must be used within a TeachersProvider')
+  }
+  return context
 } 

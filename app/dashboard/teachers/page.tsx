@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Grid3X3, List, Search, Mail, Phone, MapPin, Calendar, GraduationCap, MoreVertical } from 'lucide-react'
+import { Plus, Grid3X3, List, Search, Mail, Phone, MapPin, Calendar, GraduationCap, MoreVertical, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,20 +15,132 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useTeachers, Teacher } from '@/hooks/useTeachers'
+import { useTeachers, Teacher, TeachersProvider } from '@/contexts/TeachersContext'
 import { AddTeacherDialog } from './components/AddTeacherDialog'
 
 type ViewMode = 'card' | 'table'
 
-export default function TeachersPage() {
+function TeachersPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('card')
   const [searchTerm, setSearchTerm] = useState('')
-  const { teachers, loading, searchTeachers } = useTeachers()
+  const { teachers, loading, searchTeachers, deleteTeacher } = useTeachers()
+
+  const handleDeleteTeacher = async (id: string) => {
+    const result = await deleteTeacher(id)
+    if (result.success) {
+      console.log('Teacher deleted successfully')
+      // You can add a toast notification here
+    } else {
+      console.error('Failed to delete teacher:', result.error)
+    }
+  }
 
   const filteredTeachers = searchTeachers(searchTerm)
 
   if (loading) {
     return <TeachersLoadingSkeleton />
+  }
+
+  function TeacherCard({ teacher, onDeleteTeacher }: { teacher: Teacher; onDeleteTeacher: (id: string) => Promise<void> }) {
+    const getInitials = (name: string) => {
+      return name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+
+    const handleDeleteTeacher = async () => {
+      if (confirm(`Are you sure you want to delete ${teacher.name}? This action cannot be undone.`)) {
+        await onDeleteTeacher(teacher.id)
+      }
+    }
+
+    const getEmploymentBadgeVariant = (type: string) => {
+      switch (type) {
+        case 'full-time': return 'default'
+        case 'part-time': return 'secondary'
+        case 'contract': return 'outline'
+        default: return 'secondary'
+      }
+    }
+
+    return (
+      <Card className="relative">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-3">
+              <Avatar>
+                <AvatarFallback>{getInitials(teacher.name)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle className="text-base">{teacher.name}</CardTitle>
+                <CardDescription className="text-sm">
+                  {teacher.subjects.join(', ')}
+                </CardDescription>
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>View Details</DropdownMenuItem>
+                <AddTeacherDialog mode="edit" teacherData={teacher}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Teacher
+                  </DropdownMenuItem>
+                </AddTeacherDialog>
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onClick={handleDeleteTeacher}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Teacher
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Badge variant={getEmploymentBadgeVariant(teacher.employmentType)}>
+              {teacher.employmentType.charAt(0).toUpperCase() + teacher.employmentType.slice(1)}
+            </Badge>
+            <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
+              {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
+            </Badge>
+          </div>
+          
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span className="truncate">{teacher.email}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              <span>{teacher.mobile}</span>
+            </div>
+            {teacher.dateOfJoining && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Joined {new Date(teacher.dateOfJoining).toLocaleDateString()}</span>
+              </div>
+            )}
+            {teacher.homeAddress && (
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <span className="truncate">{teacher.homeAddress}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -131,7 +243,7 @@ export default function TeachersPage() {
         ) : viewMode === 'card' ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredTeachers.map((teacher) => (
-              <TeacherCard key={teacher.id} teacher={teacher} />
+              <TeacherCard key={teacher.id} teacher={teacher} onDeleteTeacher={handleDeleteTeacher} />
             ))}
           </div>
         ) : (
@@ -139,93 +251,6 @@ export default function TeachersPage() {
         )}
       </div>
     </div>
-  )
-}
-
-function TeacherCard({ teacher }: { teacher: Teacher }) {
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
-  const getEmploymentBadgeVariant = (type: string) => {
-    switch (type) {
-      case 'full-time': return 'default'
-      case 'part-time': return 'secondary'
-      case 'contract': return 'outline'
-      default: return 'secondary'
-    }
-  }
-
-  return (
-    <Card className="relative">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <Avatar>
-              <AvatarFallback>{getInitials(teacher.name)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-base">{teacher.name}</CardTitle>
-              <CardDescription className="text-sm">
-                {teacher.subjects.join(', ')}
-              </CardDescription>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem>Edit</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Badge variant={getEmploymentBadgeVariant(teacher.employmentType)}>
-            {teacher.employmentType.charAt(0).toUpperCase() + teacher.employmentType.slice(1)}
-          </Badge>
-          <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
-            {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
-          </Badge>
-        </div>
-        
-        <div className="space-y-2 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span className="truncate">{teacher.email}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            <span>{teacher.mobile}</span>
-          </div>
-          {teacher.dateOfJoining && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>Joined {new Date(teacher.dateOfJoining).toLocaleDateString()}</span>
-            </div>
-          )}
-          {teacher.homeAddress && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              <span className="truncate">{teacher.homeAddress}</span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 
@@ -371,5 +396,13 @@ function TeachersLoadingSkeleton() {
         ))}
       </div>
     </div>
+  )
+} 
+
+export default function TeachersPage() {
+  return (
+    <TeachersProvider>
+      <TeachersPageContent />
+    </TeachersProvider>
   )
 } 

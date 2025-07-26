@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -40,7 +40,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { useTeachers, CreateTeacherData } from '@/hooks/useTeachers'
+import { useTeachers, CreateTeacherData, Teacher } from '@/contexts/TeachersContext'
 import { cn } from '@/lib/utils'
 
 // Form validation schema
@@ -49,33 +49,27 @@ const addTeacherSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email format'),
   mobile: z.string().min(1, 'Mobile number is required').min(10, 'Mobile number must be at least 10 digits'),
   dateOfJoining: z.date().optional(),
-  gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say'], {
-    required_error: 'Gender is required',
-  }),
-  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], {
-    required_error: 'Blood group is required',
-  }),
-  dateOfBirth: z.date({
-    required_error: 'Date of birth is required',
-  }),
+  gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say']),
+  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']),
+  dateOfBirth: z.date(),
   homeAddress: z.string().optional(),
   educationDetails: z.string().min(1, 'Education details are required'),
   subjects: z.string().min(1, 'At least one subject is required'),
-  employmentType: z.enum(['full-time', 'part-time', 'contract'], {
-    required_error: 'Employment type is required',
-  }),
+  employmentType: z.enum(['full-time', 'part-time', 'contract']),
 })
 
 type AddTeacherFormData = z.infer<typeof addTeacherSchema>
 
 interface AddTeacherDialogProps {
   children: React.ReactNode
+  mode?: 'create' | 'edit'
+  teacherData?: Teacher
 }
 
-export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
+export function AddTeacherDialog({ children, mode = 'create', teacherData }: AddTeacherDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { addTeacher } = useTeachers()
+  const { addTeacher, updateTeacher } = useTeachers()
 
   const form = useForm<AddTeacherFormData>({
     resolver: zodResolver(addTeacherSchema),
@@ -92,6 +86,28 @@ export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
     },
   })
 
+  // Populate form when editing
+  useEffect(() => {
+    if (mode === 'edit' && teacherData && open) {
+      form.setValue('name', teacherData.name)
+      form.setValue('email', teacherData.email)
+      form.setValue('mobile', teacherData.mobile)
+      form.setValue('gender', teacherData.gender)
+      form.setValue('bloodGroup', teacherData.bloodGroup)
+      form.setValue('educationDetails', teacherData.educationDetails)
+      form.setValue('subjects', teacherData.subjects.join(', '))
+      form.setValue('employmentType', teacherData.employmentType)
+      form.setValue('homeAddress', teacherData.homeAddress || '')
+      
+      if (teacherData.dateOfBirth) {
+        form.setValue('dateOfBirth', new Date(teacherData.dateOfBirth))
+      }
+      if (teacherData.dateOfJoining) {
+        form.setValue('dateOfJoining', new Date(teacherData.dateOfJoining))
+      }
+    }
+  }, [mode, teacherData, open, form])
+
   const onSubmit = async (data: AddTeacherFormData) => {
     setIsSubmitting(true)
     try {
@@ -101,22 +117,48 @@ export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
         .map(s => s.trim())
         .filter(s => s.length > 0)
 
-      const teacherData: CreateTeacherData = {
-        ...data,
-        subjects: subjectsArray,
-        dateOfJoining: data.dateOfJoining?.toISOString().split('T')[0],
-        dateOfBirth: data.dateOfBirth.toISOString().split('T')[0],
-      }
+      if (mode === 'edit' && teacherData) {
+        // Update existing teacher
+        const updateData = {
+          ...data,
+          subjects: subjectsArray,
+          dateOfJoining: data.dateOfJoining?.toISOString().split('T')[0],
+          dateOfBirth: data.dateOfBirth.toISOString().split('T')[0],
+        }
 
-      const result = await addTeacher(teacherData)
-      
-      if (result.success) {
-        setOpen(false)
-        form.reset()
-        // You can add a toast notification here
+        console.log('Updating teacher with data:', updateData) // Debug log
+
+        const result = await updateTeacher(teacherData.id, updateData)
+        
+        if (result.success) {
+          console.log('Teacher updated successfully') // Debug log
+          setOpen(false)
+          form.reset()
+          // You can add a toast notification here
+        } else {
+          console.error('Failed to update teacher:', result.error)
+        }
       } else {
-        // Handle error - you can add toast notification here
-        console.error('Failed to add teacher:', result.error)
+        // Create new teacher
+        const newTeacherData: CreateTeacherData = {
+          ...data,
+          subjects: subjectsArray,
+          dateOfJoining: data.dateOfJoining?.toISOString().split('T')[0],
+          dateOfBirth: data.dateOfBirth.toISOString().split('T')[0],
+        }
+
+        console.log('Creating teacher with data:', newTeacherData) // Debug log
+
+        const result = await addTeacher(newTeacherData)
+        
+        if (result.success) {
+          console.log('Teacher created successfully') // Debug log
+          setOpen(false)
+          form.reset()
+          // You can add a toast notification here
+        } else {
+          console.error('Failed to add teacher:', result.error)
+        }
       }
     } catch (error) {
       console.error('Error submitting form:', error)
@@ -132,9 +174,12 @@ export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Teacher</DialogTitle>
+          <DialogTitle>{mode === 'edit' ? 'Edit Teacher' : 'Add New Teacher'}</DialogTitle>
           <DialogDescription>
-            Fill in the teacher's information. Fields marked with * are required.
+            {mode === 'edit' 
+              ? `Update ${teacherData?.name}'s information. Fields marked with * are required.`
+              : 'Fill in the teacher\'s information. Fields marked with * are required.'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -423,7 +468,7 @@ export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add Teacher
+                {mode === 'edit' ? 'Update Teacher' : 'Add Teacher'}
               </Button>
             </DialogFooter>
           </form>
