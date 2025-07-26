@@ -234,6 +234,8 @@ export function AddTeacherDialog({ children }: AddTeacherDialogProps) {
                           <SelectItem value="AB-">AB-</SelectItem>
                           <SelectItem value="O+">O+</SelectItem>
                           <SelectItem value="O-">O-</SelectItem>
+                          <SelectItem value="O-">O-</SelectItem>
+                          <SelectItem value="NA">NA-</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
