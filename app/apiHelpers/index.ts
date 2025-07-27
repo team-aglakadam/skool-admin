@@ -39,12 +39,16 @@ export async function getTeachers(schoolId: string | null) {
   return res.json();
 }
 
-export async function addTeacher(payload: { name: string; subject: string }) {
+export async function addTeacher(payload: any) {
   const res = await fetch("/api/teachers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include", // For auth cookies
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to add teacher");
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to add teacher");
+  }
   return res.json();
 }
