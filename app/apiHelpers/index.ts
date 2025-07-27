@@ -25,3 +25,22 @@ export async function signOutUser() {
 
   return res.json();
 }
+
+export async function getTeachers(schoolId: string | null) {
+  console.log("schoolId1", schoolId);
+  const res = await fetch(`/api/teachers?schoolId=${schoolId}`, {
+    method: "GET",
+  });
+  if (!res.ok) throw new Error("Failed to fetch teachers");
+  return res.json();
+}
+
+export async function addTeacher(payload: { name: string; subject: string }) {
+  const res = await fetch("/api/teachers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to add teacher");
+  return res.json();
+}

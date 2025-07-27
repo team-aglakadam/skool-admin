@@ -300,32 +300,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main content */}
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md">
-              <BookOpen className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                Welcome to SchoolHub
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Get started by creating your first school or joining an existing
-                one.
-              </p>
-              <div className="space-y-3">
-                <Button asChild className="w-full">
-                  <Link href="/dashboard/schools/create">
-                    Create New School
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild className="w-full">
-                  <Link href="/dashboard/schools/join">
-                    Join Existing School
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

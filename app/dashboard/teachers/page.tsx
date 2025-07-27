@@ -1,70 +1,114 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Plus, Grid3X3, List, Search, Mail, Phone, MapPin, Calendar, GraduationCap, MoreVertical, Edit, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useState } from "react";
+import {
+  Plus,
+  Grid3X3,
+  List,
+  Search,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  GraduationCap,
+  MoreVertical,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useTeachers, Teacher, TeachersProvider } from '@/contexts/TeachersContext'
-import { AddTeacherDialog } from './components/AddTeacherDialog'
+} from "@/components/ui/dropdown-menu";
+import {
+  useTeachers,
+  Teacher,
+  TeachersProvider,
+} from "@/contexts/TeachersContext";
+import { AddTeacherDialog } from "./components/AddTeacherDialog";
 
-type ViewMode = 'card' | 'table'
+type ViewMode = "card" | "table";
 
 function TeachersPageContent() {
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
-  const [searchTerm, setSearchTerm] = useState('')
-  const { teachers, loading, searchTeachers, deleteTeacher } = useTeachers()
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const [searchTerm, setSearchTerm] = useState("");
+  const { teachers, loading, searchTeachers, deleteTeacher } = useTeachers();
 
   const handleDeleteTeacher = async (id: string) => {
-    const result = await deleteTeacher(id)
+    const result = await deleteTeacher(id);
     if (result.success) {
-      console.log('Teacher deleted successfully')
+      console.log("Teacher deleted successfully");
       // You can add a toast notification here
     } else {
-      console.error('Failed to delete teacher:', result.error)
+      console.error("Failed to delete teacher:", result.error);
     }
-  }
+  };
 
-  const filteredTeachers = searchTeachers(searchTerm)
+  const filteredTeachers = searchTeachers(searchTerm);
 
   if (loading) {
-    return <TeachersLoadingSkeleton />
+    return <TeachersLoadingSkeleton />;
   }
 
-  function TeacherCard({ teacher, onDeleteTeacher }: { teacher: Teacher; onDeleteTeacher: (id: string) => Promise<void> }) {
+  function TeacherCard({
+    teacher,
+    onDeleteTeacher,
+  }: {
+    teacher: Teacher;
+    onDeleteTeacher: (id: string) => Promise<void>;
+  }) {
     const getInitials = (name: string) => {
       return name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
         .toUpperCase()
-        .slice(0, 2)
-    }
+        .slice(0, 2);
+    };
 
     const handleDeleteTeacher = async () => {
-      if (confirm(`Are you sure you want to delete ${teacher.name}? This action cannot be undone.`)) {
-        await onDeleteTeacher(teacher.id)
+      if (
+        confirm(
+          `Are you sure you want to delete ${teacher.name}? This action cannot be undone.`
+        )
+      ) {
+        await onDeleteTeacher(teacher.id);
       }
-    }
+    };
 
     const getEmploymentBadgeVariant = (type: string) => {
       switch (type) {
-        case 'full-time': return 'default'
-        case 'part-time': return 'secondary'
-        case 'contract': return 'outline'
-        default: return 'secondary'
+        case "full-time":
+          return "default";
+        case "part-time":
+          return "secondary";
+        case "contract":
+          return "outline";
+        default:
+          return "secondary";
       }
-    }
+    };
 
     return (
       <Card className="relative">
@@ -77,7 +121,7 @@ function TeachersPageContent() {
               <div>
                 <CardTitle className="text-base">{teacher.name}</CardTitle>
                 <CardDescription className="text-sm">
-                  {teacher.subjects.join(', ')}
+                  {teacher.subjects.join(", ")}
                 </CardDescription>
               </div>
             </div>
@@ -95,7 +139,7 @@ function TeachersPageContent() {
                     Edit Teacher
                   </DropdownMenuItem>
                 </AddTeacherDialog>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive"
                   onClick={handleDeleteTeacher}
                 >
@@ -109,13 +153,16 @@ function TeachersPageContent() {
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
             <Badge variant={getEmploymentBadgeVariant(teacher.employmentType)}>
-              {teacher.employmentType.charAt(0).toUpperCase() + teacher.employmentType.slice(1)}
+              {teacher.employmentType.charAt(0).toUpperCase() +
+                teacher.employmentType.slice(1)}
             </Badge>
-            <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
+            <Badge
+              variant={teacher.status === "active" ? "default" : "secondary"}
+            >
               {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
             </Badge>
           </div>
-          
+
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -128,7 +175,9 @@ function TeachersPageContent() {
             {teacher.dateOfJoining && (
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                <span>Joined {new Date(teacher.dateOfJoining).toLocaleDateString()}</span>
+                <span>
+                  Joined {new Date(teacher.dateOfJoining).toLocaleDateString()}
+                </span>
               </div>
             )}
             {teacher.homeAddress && (
@@ -140,7 +189,7 @@ function TeachersPageContent() {
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -167,7 +216,9 @@ function TeachersPageContent() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Teachers
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{teachers.length}</div>
@@ -175,19 +226,25 @@ function TeachersPageContent() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Teachers</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Teachers
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{teachers.filter(t => t.status === 'active').length}</div>
+            <div className="text-2xl font-bold">
+              {teachers.filter((t) => t.status === "active").length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subjects Covered</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Subjects Covered
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(teachers.flatMap(t => t.subjects)).size}
+              {new Set(teachers.flatMap((t) => t.subjects)).size}
             </div>
           </CardContent>
         </Card>
@@ -206,21 +263,21 @@ function TeachersPageContent() {
             />
           </div>
         </div>
-        
+
         {/* View Toggle */}
         <div className="flex items-center gap-1 border rounded-md p-1">
           <Button
-            variant={viewMode === 'card' ? 'default' : 'ghost'}
+            variant={viewMode === "card" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setViewMode('card')}
+            onClick={() => setViewMode("card")}
             className="h-8 w-8 p-0"
           >
             <Grid3X3 className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            variant={viewMode === "table" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setViewMode('table')}
+            onClick={() => setViewMode("table")}
             className="h-8 w-8 p-0"
           >
             <List className="h-4 w-4" />
@@ -236,14 +293,20 @@ function TeachersPageContent() {
               <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No teachers found</h3>
               <p className="text-muted-foreground text-center">
-                {searchTerm ? 'Try adjusting your search term' : 'Get started by adding your first teacher'}
+                {searchTerm
+                  ? "Try adjusting your search term"
+                  : "Get started by adding your first teacher"}
               </p>
             </CardContent>
           </Card>
-        ) : viewMode === 'card' ? (
+        ) : viewMode === "card" ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredTeachers.map((teacher) => (
-              <TeacherCard key={teacher.id} teacher={teacher} onDeleteTeacher={handleDeleteTeacher} />
+              <TeacherCard
+                key={teacher.id}
+                teacher={teacher}
+                onDeleteTeacher={handleDeleteTeacher}
+              />
             ))}
           </div>
         ) : (
@@ -251,7 +314,7 @@ function TeachersPageContent() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function TeachersTable({ teachers }: { teachers: Teacher[] }) {
@@ -278,16 +341,18 @@ function TeachersTable({ teachers }: { teachers: Teacher[] }) {
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="text-xs">
                         {teacher.name
-                          .split(' ')
-                          .map(n => n[0])
-                          .join('')
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
                           .toUpperCase()
                           .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="font-medium">{teacher.name}</div>
-                      <div className="text-sm text-muted-foreground">{teacher.email}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {teacher.email}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
@@ -302,7 +367,11 @@ function TeachersTable({ teachers }: { teachers: Teacher[] }) {
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {teacher.subjects.map((subject) => (
-                      <Badge key={subject} variant="outline" className="text-xs">
+                      <Badge
+                        key={subject}
+                        variant="outline"
+                        className="text-xs"
+                      >
                         {subject}
                       </Badge>
                     ))}
@@ -310,19 +379,24 @@ function TeachersTable({ teachers }: { teachers: Teacher[] }) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">
-                    {teacher.employmentType.charAt(0).toUpperCase() + teacher.employmentType.slice(1)}
+                    {teacher.employmentType.charAt(0).toUpperCase() +
+                      teacher.employmentType.slice(1)}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
-                    {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
+                  <Badge
+                    variant={
+                      teacher.status === "active" ? "default" : "secondary"
+                    }
+                  >
+                    {teacher.status.charAt(0).toUpperCase() +
+                      teacher.status.slice(1)}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {teacher.dateOfJoining 
+                  {teacher.dateOfJoining
                     ? new Date(teacher.dateOfJoining).toLocaleDateString()
-                    : '-'
-                  }
+                    : "-"}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -346,7 +420,7 @@ function TeachersTable({ teachers }: { teachers: Teacher[] }) {
         </Table>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function TeachersLoadingSkeleton() {
@@ -359,7 +433,7 @@ function TeachersLoadingSkeleton() {
         </div>
         <Skeleton className="h-10 w-32" />
       </div>
-      
+
       <div className="grid gap-4 md:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <Card key={i}>
@@ -372,7 +446,7 @@ function TeachersLoadingSkeleton() {
           </Card>
         ))}
       </div>
-      
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(6)].map((_, i) => (
           <Card key={i}>
@@ -396,13 +470,13 @@ function TeachersLoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
-} 
+  );
+}
 
 export default function TeachersPage() {
   return (
     <TeachersProvider>
       <TeachersPageContent />
     </TeachersProvider>
-  )
-} 
+  );
+}

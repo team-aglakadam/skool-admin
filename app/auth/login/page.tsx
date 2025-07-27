@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -21,26 +21,28 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const { signIn } = useAuth();
-  const { mutate: signInMutate, isPending: isUserBeingLoggedIn } = signIn;
+  const { signIn, fetchUserSessionDetails } = useAuth();
+  const {
+    mutate: signInMutate,
+    isPending: isUserBeingLoggedIn,
+    isSuccess,
+    isError,
+  } = signIn;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    signInMutate(
-      { email, password },
-      {
-        onSuccess: () => {
-          // success logic
-          router.push("/dashboard");
-        },
-        onError: (err) => {
-          //error logic
-        },
-      }
-    );
+    signInMutate({ email, password });
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      router.push("/dashboard");
+    }
+    if (isError) {
+      //toast logic
+    }
+  }, [isSuccess, isError]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
