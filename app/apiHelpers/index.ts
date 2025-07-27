@@ -30,6 +30,10 @@ export async function getTeachers(schoolId: string | null) {
   console.log("schoolId1", schoolId);
   const res = await fetch(`/api/teachers?schoolId=${schoolId}`, {
     method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // This ensures cookies are sent with the request
   });
   if (!res.ok) throw new Error("Failed to fetch teachers");
   return res.json();
