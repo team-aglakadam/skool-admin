@@ -54,7 +54,6 @@ const addTeacherSchema = z.object({
   dateOfBirth: z.date(),
   homeAddress: z.string().optional(),
   educationDetails: z.string().min(1, 'Education details are required'),
-  subjects: z.string().min(1, 'At least one subject is required'),
   employmentType: z.enum(['full-time', 'part-time', 'contract']),
 })
 
@@ -78,7 +77,6 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
       email: '',
       mobile: '',
       educationDetails: '',
-      subjects: '',
       employmentType: 'full-time',
       gender: 'prefer-not-to-say',
       bloodGroup: 'O+',
@@ -95,7 +93,6 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
       form.setValue('gender', teacherData.gender)
       form.setValue('bloodGroup', teacherData.bloodGroup)
       form.setValue('educationDetails', teacherData.educationDetails)
-      form.setValue('subjects', teacherData.subjects.join(', '))
       form.setValue('employmentType', teacherData.employmentType)
       form.setValue('homeAddress', teacherData.homeAddress || '')
       
@@ -111,19 +108,13 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
   const onSubmit = async (data: AddTeacherFormData) => {
     setIsSubmitting(true)
     try {
-      // Convert subjects string to array
-      const subjectsArray = data.subjects
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
-
       if (mode === 'edit' && teacherData) {
         // Update existing teacher
         const updateData = {
           ...data,
-          subjects: subjectsArray,
           dateOfJoining: data.dateOfJoining?.toISOString().split('T')[0],
           dateOfBirth: data.dateOfBirth.toISOString().split('T')[0],
+          subjects: teacherData.subjects || [], // Keep existing subjects
         }
 
         console.log('Updating teacher with data:', updateData) // Debug log
@@ -131,20 +122,22 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
         const result = await updateTeacher(teacherData.id, updateData)
         
         if (result.success) {
-          console.log('Teacher updated successfully') // Debug log
+          // Success notification
+          alert('Teacher updated successfully')
           setOpen(false)
           form.reset()
-          // You can add a toast notification here
         } else {
+          // Error notification
+          alert(`Failed to update teacher: ${result.error || 'Unknown error'}`)
           console.error('Failed to update teacher:', result.error)
         }
       } else {
         // Create new teacher
         const newTeacherData: CreateTeacherData = {
           ...data,
-          subjects: subjectsArray,
           dateOfJoining: data.dateOfJoining?.toISOString().split('T')[0],
           dateOfBirth: data.dateOfBirth.toISOString().split('T')[0],
+          subjects: [], // Initialize with empty array
         }
 
         console.log('Creating teacher with data:', newTeacherData) // Debug log
@@ -152,11 +145,14 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
         const result = await addTeacher(newTeacherData)
         
         if (result.success) {
-          console.log('Teacher created successfully') // Debug log
+          // Success notification with default password info
+          alert('Teacher created successfully. Default password: admin123')
+          console.log('Teacher created successfully:', result.data)
           setOpen(false)
           form.reset()
-          // You can add a toast notification here
         } else {
+          // Error notification
+          alert(`Failed to add teacher: ${result.error || 'Unknown error'}`)
           console.error('Failed to add teacher:', result.error)
         }
       }
@@ -380,23 +376,6 @@ export function AddTeacherDialog({ children, mode = 'create', teacherData }: Add
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Professional Information</h3>
               
-              <FormField
-                control={form.control}
-                name="subjects"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Subjects (comma-separated) *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Mathematics, Physics, Chemistry" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="employmentType"
