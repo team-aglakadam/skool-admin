@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus,
   Grid3X3,
@@ -79,7 +79,7 @@ function TeachersPageContent() {
     onDeleteTeacher: (id: string) => Promise<void>;
   }) {
     const getInitials = (name: string) => {
-      return name
+      return name?
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -121,7 +121,7 @@ function TeachersPageContent() {
               <div>
                 <CardTitle className="text-base">{teacher.name}</CardTitle>
                 <CardDescription className="text-sm">
-                  {teacher.subjects.join(", ")}
+                  {teacher.subjects?.join(", ")}
                 </CardDescription>
               </div>
             </div>
@@ -153,13 +153,13 @@ function TeachersPageContent() {
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
             <Badge variant={getEmploymentBadgeVariant(teacher.employmentType)}>
-              {teacher.employmentType.charAt(0).toUpperCase() +
-                teacher.employmentType.slice(1)}
+              {teacher.employmentType?.charAt(0).toUpperCase() +
+                teacher.employmentType?.slice(1)}
             </Badge>
             <Badge
               variant={teacher.status === "active" ? "default" : "secondary"}
             >
-              {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
+              {teacher.status?.charAt(0).toUpperCase() + teacher.status?.slice(1)}
             </Badge>
           </div>
 
@@ -473,10 +473,29 @@ function TeachersLoadingSkeleton() {
   );
 }
 
-export default function TeachersPage() {
+
+function ClientSideTeachers() {
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Only render the component after it's mounted on the client
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Return null during server-side rendering to avoid hydration mismatch
+  if (!isMounted) {
+    return null;
+  }
+  
   return (
     <TeachersProvider>
       <TeachersPageContent />
     </TeachersProvider>
+  );
+}
+
+export default function TeachersPage() {
+  return (
+    <ClientSideTeachers />
   );
 }
