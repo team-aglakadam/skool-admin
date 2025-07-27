@@ -1,8 +1,8 @@
 "use client";
 
-import { getTeachers } from "@/app/apiHelpers";
-import { createClient } from "@/lib/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { getTeachers, addTeacher as apiAddTeacher } from "@/app/apiHelpers";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useContext,
@@ -39,7 +39,7 @@ interface TeachersContextType {
   loading: boolean;
   addTeacher: (
     teacherData: CreateTeacherData
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; data?: any }>;
   updateTeacher: (
     id: string,
     updates: Partial<Teacher>
@@ -58,27 +58,7 @@ const TeachersContext = createContext<TeachersContextType | undefined>(
 
 export function TeachersProvider({ children }: { children: ReactNode }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [schoolId, setSchoolId] = useState(null);
-  const supabase = createClient();
-
-  const fetchUserSessionDetails = async () => {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    console.log("User:", user?.id, user?.user_metadata?.school_id); // Debug
-    setSchoolId(user?.user_metadata?.school_id);
-    console.log("User Error:", userError); // Debug
-
-    if (userError || !user) {
-      console.error("No user found:", userError?.message);
-      return;
-    }
-  };
-
-  useEffect(() => {
-    fetchUserSessionDetails();
-  }, []);
+  const { schoolId } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["teachers", schoolId],
@@ -87,6 +67,7 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
       console.log("schoolId-------", schoolId);
       return getTeachers(schoolId);
     },
+    enabled: !!schoolId, // Only run the query when schoolId is available
   });
 
   useEffect(() => {
@@ -95,32 +76,32 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
     }
   }, [data]);
 
+  const queryClient = useQueryClient();
+  
+  const addTeacherMutation = useMutation({
+    mutationFn: (teacherData: CreateTeacherData) => apiAddTeacher(teacherData),
+    onSuccess: () => {
+      // Invalidate and refetch the teachers query
+      queryClient.invalidateQueries({ queryKey: ["teachers", schoolId] });
+    },
+  });
+  
   const addTeacher = async (
     teacherData: CreateTeacherData
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log("Adding teacher with data:", teacherData); // Debug log
-
-      const newTeacher: Teacher = {
-        ...teacherData,
-        id: Date.now().toString(),
-        status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      console.log("New teacher object:", newTeacher); // Debug log
-
-      setTeachers((prev) => {
-        const updatedTeachers = [newTeacher, ...prev];
-        console.log("Updated teachers array:", updatedTeachers); // Debug log
-        return updatedTeachers;
-      });
-
-      return { success: true };
+      
+      const response = await addTeacherMutation.mutateAsync(teacherData);
+      console.log("Teacher created successfully:", response);
+      
+      return { success: true, data: response };
     } catch (error) {
-      console.error("Error adding teacher:", error); // Debug log
-      return { success: false, error: "Failed to add teacher" };
+      console.error("Error adding teacher:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to add teacher" 
+      };
     }
   };
 
