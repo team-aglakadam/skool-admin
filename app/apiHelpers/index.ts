@@ -52,3 +52,21 @@ export async function addTeacher(payload: any) {
   }
   return res.json();
 }
+
+export async function deleteTeacher(id: string) {
+  const res = await fetch("/api/teachers", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ id }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || "Failed to delete teacher");
+  }
+
+  console.log("returning", res.json());
+
+  return res.json();
+}

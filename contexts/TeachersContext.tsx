@@ -1,8 +1,5 @@
 "use client";
 
-import { getTeachers, addTeacher as apiAddTeacher } from "@/app/apiHelpers";
-import { useAuth } from "@/contexts/AuthContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useContext,
@@ -10,24 +7,14 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-
-export type Teacher = {
-  id: string;
-  name: string;
-  email: string;
-  mobile: string;
-  dateOfJoining?: string;
-  gender: "male" | "female" | "other" | "prefer-not-to-say";
-  bloodGroup: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
-  dateOfBirth: string;
-  homeAddress?: string;
-  educationDetails: string;
-  status: "active" | "inactive";
-  subjects: string[];
-  employmentType: "full-time" | "part-time" | "contract";
-  createdAt: string;
-  updatedAt: string;
-};
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getTeachers,
+  addTeacher as addTeacherApi,
+  deleteTeacher as deleteTeacherApi,
+} from "@/app/apiHelpers";
+import { Teacher } from "@/app/types/teacher";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type CreateTeacherData = Omit<
   Teacher,
@@ -46,7 +33,6 @@ interface TeachersContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   deleteTeacher: (id: string) => Promise<{ success: boolean; error?: string }>;
   getTeacherById: (id: string) => Teacher | undefined;
-  searchTeachers: (searchTerm: string) => Teacher[];
   activeTeachers: Teacher[];
   inactiveTeachers: Teacher[];
   totalTeachers: number;
@@ -60,11 +46,10 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const { schoolId } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["teachers", schoolId],
     queryFn: ({ queryKey }) => {
       const [, schoolId] = queryKey;
-      console.log("schoolId-------", schoolId);
       return getTeachers(schoolId);
     },
     enabled: !!schoolId, // Only run the query when schoolId is available
@@ -77,30 +62,31 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
   }, [data]);
 
   const queryClient = useQueryClient();
-  
+
   const addTeacherMutation = useMutation({
-    mutationFn: (teacherData: CreateTeacherData) => apiAddTeacher(teacherData),
+    mutationFn: (teacherData: CreateTeacherData) => addTeacherApi(teacherData),
     onSuccess: () => {
       // Invalidate and refetch the teachers query
       queryClient.invalidateQueries({ queryKey: ["teachers", schoolId] });
     },
   });
-  
+
+  const deleteTeacherMutation = useMutation({
+    mutationFn: (id: string) => addTeacherApi(id),
+  });
+
   const addTeacher = async (
     teacherData: CreateTeacherData
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{ success: boolean; error?: string; data: object }> => {
     try {
-      console.log("Adding teacher with data:", teacherData); // Debug log
-      
       const response = await addTeacherMutation.mutateAsync(teacherData);
-      console.log("Teacher created successfully:", response);
-      
       return { success: true, data: response };
     } catch (error) {
       console.error("Error adding teacher:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Failed to add teacher" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to add teacher",
+        data: {},
       };
     }
   };
@@ -127,27 +113,23 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
     id: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      setTeachers((prev) => prev.filter((teacher) => teacher.id !== id));
+      const response = await deleteTeacherMutation.mutateAsync(id);
+      if (response.status === 201) {
+        refetch();
+      }
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Failed to delete teacher" };
+      console.error("Error deleting teacher:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to delete teacher",
+      };
     }
   };
 
   const getTeacherById = (id: string): Teacher | undefined => {
     return teachers.find((teacher) => teacher.id === id);
-  };
-
-  const searchTeachers = (searchTerm: string): Teacher[] => {
-    if (!searchTerm) return teachers;
-
-    const term = searchTerm.toLowerCase();
-    return teachers.filter(
-      (teacher) =>
-        teacher.name.toLowerCase().includes(term) ||
-        teacher.email.toLowerCase().includes(term) ||
-        teacher.subjects.some((subject) => subject.toLowerCase().includes(term))
-    );
   };
 
   const activeTeachers = teachers.filter((t) => t.status === "active");
@@ -160,7 +142,6 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
     updateTeacher,
     deleteTeacher,
     getTeacherById,
-    searchTeachers,
     activeTeachers,
     inactiveTeachers,
     totalTeachers: teachers.length,
