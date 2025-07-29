@@ -72,7 +72,7 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
   });
 
   const deleteTeacherMutation = useMutation({
-    mutationFn: (id: string) => addTeacherApi(id),
+    mutationFn: (id: string) => deleteTeacherApi(id),
   });
 
   const addTeacher = async (
@@ -114,7 +114,7 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await deleteTeacherMutation.mutateAsync(id);
-      if (response.status === 201) {
+      if (response.message) {
         refetch();
       }
       return { success: true };
