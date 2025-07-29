@@ -61,12 +61,10 @@ export async function deleteTeacher(id: string) {
     body: JSON.stringify({ id }),
   });
 
+  const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to delete teacher");
+    throw new Error(data.error || "Failed to delete teacher");
   }
-
-  console.log("returning", res.json());
-
-  return res.json();
+  return data;
 }
