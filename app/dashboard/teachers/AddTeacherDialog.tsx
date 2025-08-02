@@ -65,14 +65,27 @@ interface AddTeacherDialogProps {
   children: React.ReactNode;
   mode?: "create" | "edit";
   teacherData?: Teacher;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AddTeacherDialog({
   children,
   mode = "create",
   teacherData,
+  open,
+  onOpenChange,
 }: AddTeacherDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : localOpen;
+  const setIsOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setLocalOpen(value);
+    }
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -131,11 +144,15 @@ export function AddTeacherDialog({
         const result = await updateTeacher(teacherData.id, updateData);
 
         if (result.success) {
-          alert("Teacher updated successfully");
-          setOpen(false);
+          toast.success("Teacher updated successfully", {
+            description: result.message
+          });
+          setIsOpen(false);
           form.reset();
         } else {
-          alert(`Failed to update teacher: ${result.error || "Unknown error"}`);
+          toast.error("Failed to update teacher", {
+            description: result.error || "Unknown error"
+          });
         }
       } else {
         // Create new teacher
@@ -153,7 +170,7 @@ export function AddTeacherDialog({
           toast.success("Teacher created 🎉", {
             description: result.data?.message,
           });
-          setOpen(false);
+          setIsOpen(false);
           form.reset();
         } else {
           toast.error("Oops! Teacher creation failed ", {
@@ -174,7 +191,7 @@ export function AddTeacherDialog({
   const sectionBg = "rounded-md bg-muted/50 px-4 py-4 border";
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -487,7 +504,7 @@ export function AddTeacherDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => setIsOpen(false)}
                 disabled={isSubmitting}
               >
                 Cancel
