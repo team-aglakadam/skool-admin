@@ -193,12 +193,13 @@ export function AddTeacherDialog({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+        <div role="dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle id="dialog-title">
             {mode === "edit" ? "Edit Teacher" : "Add New Teacher"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="dialog-description">
             {mode === "edit"
               ? `Update ${teacherData?.name}'s information. Fields marked with * are required.`
               : "Please fill the details carefully. Fields marked with * are required."}
@@ -216,63 +217,130 @@ export function AddTeacherDialog({
                 Personal Information
               </h3>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Full Name: Full width */}
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Full Name <span className="text-red-600">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g. Priya Sharma"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Use alphabets only, e.g., Priya Sharma
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* DOB: Limit width */}
-                <div className="w-[40%]">
+                <div className="md:col-span-2">
                   <FormField
                     control={form.control}
-                    name="dateOfBirth"
+                    name="name"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Date of Birth <span className="text-red-600">*</span>
+                          Full Name <span className="text-red-600">*</span>
                         </FormLabel>
                         <FormControl>
-                          <DatePicker
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Select date"
-                            startYear={1900}
-                            endYear={new Date().getFullYear()}
-                            disabled={(date) =>
-                              isAfter(date, new Date()) ||
-                              isBefore(date, new Date("1900-01-01"))
-                            }
+                          <Input
+                            placeholder="e.g. Priya Sharma"
+                            autoComplete="name"
+                            aria-required="true"
+                            {...field}
                           />
                         </FormControl>
-
                         <FormDescription>
-                          Must be a valid date of birth
+                          Use alphabets only, e.g., Priya Sharma
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
+                {/* Gender */}
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Gender <span className="text-red-600">*</span>
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger aria-label="Select gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="prefer-not-to-say">
+                            Prefer not to say
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Blood Group */}
+                <FormField
+                  control={form.control}
+                  name="bloodGroup"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Blood Group <span className="text-red-600">*</span>
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger aria-label="Select blood group">
+                            <SelectValue placeholder="Select blood group" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="A+">A+</SelectItem>
+                          <SelectItem value="A-">A-</SelectItem>
+                          <SelectItem value="B+">B+</SelectItem>
+                          <SelectItem value="B-">B-</SelectItem>
+                          <SelectItem value="AB+">AB+</SelectItem>
+                          <SelectItem value="AB-">AB-</SelectItem>
+                          <SelectItem value="O+">O+</SelectItem>
+                          <SelectItem value="O-">O-</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* DOB */}
+                <FormField
+                  control={form.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Date of Birth <span className="text-red-600">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select date"
+                          startYear={1900}
+                          endYear={new Date().getFullYear()}
+                          disabled={(date) =>
+                            isAfter(date, new Date()) ||
+                            isBefore(date, new Date("1900-01-01"))
+                          }
+                          aria-label="Select date of birth"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Must be a valid date of birth
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
 
@@ -281,7 +349,7 @@ export function AddTeacherDialog({
               <h3 className="text-base font-semibold mb-6 text-primary">
                 Contact Information
               </h3>
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="mobile"
@@ -351,69 +419,8 @@ export function AddTeacherDialog({
               <h3 className="text-base font-semibold mb-6 text-primary">
                 Professional Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="gender"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Gender <span className="text-red-600">*</span>
-                      </FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="prefer-not-to-say">
-                            Prefer not to say
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="bloodGroup"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Blood Group <span className="text-red-600">*</span>
-                      </FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select blood group" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="A+">A+</SelectItem>
-                          <SelectItem value="A-">A-</SelectItem>
-                          <SelectItem value="B+">B+</SelectItem>
-                          <SelectItem value="B-">B-</SelectItem>
-                          <SelectItem value="AB+">AB+</SelectItem>
-                          <SelectItem value="AB-">AB-</SelectItem>
-                          <SelectItem value="O+">O+</SelectItem>
-                          <SelectItem value="O-">O-</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               </div>
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-2">
                 <FormField
@@ -521,6 +528,7 @@ export function AddTeacherDialog({
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
