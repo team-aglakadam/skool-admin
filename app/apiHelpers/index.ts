@@ -39,7 +39,7 @@ export async function getTeachers(schoolId: string | null) {
   return res.json();
 }
 
-export async function addTeacher(payload: any) {
+export async function addTeacher(payload: CreateTeacherData) {
   const res = await fetch("/api/teachers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -51,6 +51,28 @@ export async function addTeacher(payload: any) {
     throw new Error(errorData.error || "Failed to add teacher");
   }
   return res.json();
+}
+
+import { Teacher } from '../types/teacher';
+
+export type CreateTeacherData = Omit<Teacher, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
+export type UpdateTeacherData = Partial<Omit<Teacher, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
+
+export async function updateTeacher(id: string, updates: UpdateTeacherData) {
+  const response = await fetch('/api/teachers', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ id, ...updates }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update teacher');
+  }
+
+  return response.json();
 }
 
 export async function deleteTeacher(id: string) {
