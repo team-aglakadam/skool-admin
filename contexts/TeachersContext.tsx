@@ -12,6 +12,8 @@ import {
   getTeachers,
   addTeacher as addTeacherApi,
   deleteTeacher as deleteTeacherApi,
+  updateTeacher as updateTeacherApi,
+  UpdateTeacherData,
 } from "@/app/apiHelpers";
 import { Teacher } from "@/app/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,11 +28,11 @@ interface TeachersContextType {
   loading: boolean;
   addTeacher: (
     teacherData: CreateTeacherData
-  ) => Promise<{ success: boolean; error?: string; data?: any }>;
+  ) => Promise<{ success: boolean; error?: string; data?: { message?: string } }>;
   updateTeacher: (
     id: string,
-    updates: Partial<Teacher>
-  ) => Promise<{ success: boolean; error?: string }>;
+    updates: UpdateTeacherData
+  ) => Promise<{ success: boolean; error?: string; message?: string }>;
   deleteTeacher: (id: string) => Promise<{ success: boolean; error?: string }>;
   getTeacherById: (id: string) => Teacher | undefined;
   activeTeachers: Teacher[];
@@ -91,21 +93,27 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateTeacherMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: UpdateTeacherData }) =>
+      updateTeacherApi(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teachers", schoolId] });
+    },
+  });
+
   const updateTeacher = async (
     id: string,
-    updates: Partial<Teacher>
+    updates: UpdateTeacherData
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      setTeachers((prev) =>
-        prev.map((teacher) =>
-          teacher.id === id
-            ? { ...teacher, ...updates, updatedAt: new Date().toISOString() }
-            : teacher
-        )
-      );
+      await updateTeacherMutation.mutateAsync({ id, updates });
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Failed to update teacher" };
+      console.error("Error updating teacher:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update teacher",
+      };
     }
   };
 
