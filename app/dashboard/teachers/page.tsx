@@ -19,6 +19,8 @@ function TeachersPageContent() {
   const { teachers, loading, deleteTeacher } = useTeachers();
   const [userDeleteModalOpen, setUserDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<Teacher | null>(null);
+  const [teacherToEdit, setTeacherToEdit] = useState<Teacher | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const openDeleteModal = (teacher: Teacher) => {
     setUserToDelete(teacher);
@@ -62,11 +64,31 @@ function TeachersPageContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <AddTeacherDialog>
+          <AddTeacherDialog
+            mode="create"
+            open={dialogOpen && !teacherToEdit}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) setTeacherToEdit(null);
+            }}
+          >
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Teacher
             </Button>
+          </AddTeacherDialog>
+
+          {/* Hidden Edit Dialog - Only shown from table actions */}
+          <AddTeacherDialog
+            mode="edit"
+            teacherData={teacherToEdit || undefined}
+            open={dialogOpen && teacherToEdit !== null}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) setTeacherToEdit(null);
+            }}
+          >
+            <div />
           </AddTeacherDialog>
         </div>
       </div>
@@ -113,7 +135,11 @@ function TeachersPageContent() {
         data={teachers}
         columns={teacherColumns}
         pageSize={3}
-        onEdit={(row) => {}}
+        onEdit={(row) => {
+          console.log("row", row);
+          setTeacherToEdit(row);
+          setDialogOpen(true);
+        }}
         onDelete={(row) => {
           openDeleteModal(row);
         }}
