@@ -15,6 +15,7 @@ import {
   XCircle,
   Clock
 } from 'lucide-react'
+import TeacherAttendance from './TeacherAttendance/page'
 
 export default function AttendancePage() {
   const todayAttendance = [
@@ -122,12 +123,19 @@ export default function AttendancePage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="today" className="space-y-4">
+      <Tabs defaultValue="students" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="today">Today&apos;s Attendance</TabsTrigger>
-          <TabsTrigger value="trends">Weekly Trends</TabsTrigger>
-          <TabsTrigger value="absences">Recent Absences</TabsTrigger>
+          <TabsTrigger value="students">Student Attendance</TabsTrigger>
+          <TabsTrigger value="teachers">Teacher Attendance</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="students" className="space-y-4">
+          <Tabs defaultValue="today" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="today">Today&apos;s Attendance</TabsTrigger>
+              <TabsTrigger value="trends">Weekly Trends</TabsTrigger>
+              <TabsTrigger value="absences">Recent Absences</TabsTrigger>
+            </TabsList>
 
         <TabsContent value="today" className="space-y-4">
           <Card>
@@ -257,6 +265,12 @@ export default function AttendancePage() {
               </Table>
             </CardContent>
           </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="teachers" className="space-y-4">
+          <TeacherAttendance />
         </TabsContent>
       </Tabs>
     </div>
