@@ -40,6 +40,7 @@ export async function GET(req: Request) {
         address,
         date_of_birth,
         blood_group,
+        gender,
         role
       )
     `)
@@ -49,8 +50,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Transform the data to match the required format
+  type UserRecord = {
+    id: string;
+    email: string;
+    full_name: string;
+    phone: string;
+    address: string;
+    date_of_birth: string;
+    blood_group: string;
+    gender: string;
+    role: string;
+  };
+
   const formattedTeachers = data.map(teacher => {
-    const user = teacher.users;
+    // Each teacher has a single user record
+    const user = (teacher.users as unknown) as UserRecord;
     
     return {
       id: teacher.id,
@@ -59,7 +73,7 @@ export async function GET(req: Request) {
       mobile: user?.phone || '',
       dateOfJoining: teacher.date_of_joining || null,
       // Default values for fields not directly in the schema
-      gender: 'prefer-not-to-say', // This field isn't in your schema
+      gender: user?.gender || 'prefer-not-to-say',
       bloodGroup: user?.blood_group || 'O+',
       dateOfBirth: user?.date_of_birth || '',
       homeAddress: user?.address || null,
@@ -131,6 +145,7 @@ export async function POST(req: Request) {
         address: payload.homeAddress,
         date_of_birth: payload.dateOfBirth,
         blood_group: payload.bloodGroup,
+        gender: payload.gender,
         auth_id: authData.user.id // Store the auth user ID
       })
       .select()
@@ -178,6 +193,79 @@ export async function POST(req: Request) {
     console.error("Error in teacher creation process:", error);
     return NextResponse.json(
       { error: "Failed to create teacher" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  const payload = await req.json();
+  const { id, ...updates } = payload;
+  
+  if (!id) {
+    return NextResponse.json(
+      { error: "Teacher id is required" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = await createClient();
+  
+  // Check authentication
+  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  if (authError || !session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    // First update the user record
+    const { error: userError } = await supabase
+      .from("users")
+      .update({
+        full_name: updates.name,
+        phone: updates.mobile,
+        address: updates.homeAddress,
+        date_of_birth: updates.dateOfBirth,
+        blood_group: updates.bloodGroup,
+        gender: updates.gender
+      })
+      .eq("id", (await supabase
+        .from("teachers")
+        .select("user_id")
+        .eq("id", id)
+        .single()).data?.user_id);
+
+    if (userError) {
+      console.error("Error updating user:", userError);
+      return NextResponse.json({ error: userError.message }, { status: 500 });
+    }
+
+    // Then update the teacher record
+    const { data: teacherData, error: teacherError } = await supabase
+      .from("teachers")
+      .update({
+        designation: updates.employmentType,
+        date_of_joining: updates.dateOfJoining,
+        education_details: updates.educationDetails
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (teacherError) {
+      console.error("Error updating teacher:", teacherError);
+      return NextResponse.json({ error: teacherError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      message: "Teacher updated successfully",
+      teacher: teacherData
+    }, { status: 200 });
+
+  } catch (error) {
+    console.error("Error in teacher update process:", error);
+    return NextResponse.json(
+      { error: "Failed to update teacher" },
       { status: 500 }
     );
   }
