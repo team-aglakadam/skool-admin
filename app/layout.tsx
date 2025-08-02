@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import QueryProvider from "./utils/QueryClientProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "sonner";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -27,7 +30,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>
+          <QueryProvider>{children}</QueryProvider>
+          <Toaster richColors position="top-right" closeButton />
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,37 +1,48 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { BookOpen, Mail, Lock, AlertCircle } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, Mail, Lock, AlertCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const { signIn } = useAuth()
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  const { signIn, fetchUserSessionDetails } = useAuth();
+  const {
+    mutate: signInMutate,
+    isPending: isUserBeingLoggedIn,
+    isSuccess,
+    isError,
+  } = signIn;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+    e.preventDefault();
+    setError("");
+    signInMutate({ email, password });
+  };
 
-    const { error } = await signIn(email, password)
-    
-    if (error) {
-      setError(error.message)
-    } else {
-      router.push('/dashboard')
+  useEffect(() => {
+    if (isSuccess) {
+      router.push("/dashboard");
     }
-    
-    setLoading(false)
-  }
+    if (isError) {
+      //toast logic
+    }
+  }, [isSuccess, isError]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -45,7 +56,9 @@ export default function LoginPage() {
           <Badge variant="secondary" className="mb-2">
             School Management System
           </Badge>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome Back
+          </h1>
           <p className="text-gray-600">Sign in to your account to continue</p>
         </div>
 
@@ -67,7 +80,10 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-gray-700"
+                >
                   Email Address
                 </label>
                 <div className="relative">
@@ -85,7 +101,10 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-gray-700"
+                >
                   Password
                 </label>
                 <div className="relative">
@@ -103,51 +122,25 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <Link 
-                  href="/auth/forgot-password" 
+                <Link
+                  href="/auth/forgot-password"
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
                   Forgot password?
                 </Link>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isUserBeingLoggedIn}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {isUserBeingLoggedIn ? "Signing in..." : "Sign In"}
               </Button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
-                <Link 
-                  href="/auth/signup" 
-                  className="text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Sign up
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Demo Credentials */}
-        <Card className="mt-4 border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-4">
-            <div className="text-center">
-              <h3 className="text-sm font-medium text-yellow-800 mb-2">Demo Credentials</h3>
-              <div className="text-xs text-yellow-700 space-y-1">
-                <p><strong>Admin:</strong> admin@school.edu / admin123</p>
-                <p><strong>Teacher:</strong> teacher@school.edu / teacher123</p>
-                <p><strong>Student:</strong> student@school.edu / student123</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
     </div>
-  )
-} 
+  );
+}
