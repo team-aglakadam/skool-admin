@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Loader2, Plus, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -32,16 +32,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { useClasses, CreateClassData, Class } from '@/contexts/ClassesContext'
+import { useTeachers } from '@/contexts/TeachersContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Form validation schema
 const createClassSchema = z.object({
   name: z.string().min(1, 'Class name is required').min(2, 'Class name must be at least 2 characters'),
-  sections: z.array(z.string()).min(1, 'At least one section is required'),
+  section: z.string().min(1, 'Section is required'),
+  class_teacher_id: z.string().transform(val => val === 'none' ? null : val).nullable(),
+  school_id: z.string()
 })
 
-type CreateClassFormData = z.infer<typeof createClassSchema>
+type CreateClassFormData = {
+  name: string
+  section: string
+  class_teacher_id: string | null
+  school_id: string
+}
 
 interface CreateClassDialogProps {
   children: React.ReactNode
@@ -53,106 +61,48 @@ interface CreateClassDialogProps {
 const AVAILABLE_SECTIONS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)) // A-Z
 
 export function CreateClassDialog({ children, mode = 'create', classData }: CreateClassDialogProps) {
+  const { schoolId } = useAuth()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedSections, setSelectedSections] = useState<string[]>([])
   const { createClass, updateClass } = useClasses()
+  const { teachers } = useTeachers()
 
   const form = useForm<CreateClassFormData>({
     resolver: zodResolver(createClassSchema),
     defaultValues: {
       name: '',
-      sections: [],
+      section: '',
+      class_teacher_id: 'none',
+      school_id: schoolId || ''
     },
   })
-
-  // Sync selectedSections with form data
-  useEffect(() => {
-    form.setValue('sections', selectedSections)
-  }, [selectedSections, form])
 
   // Populate form when editing
   useEffect(() => {
     if (mode === 'edit' && classData && open) {
       form.setValue('name', classData.name)
-      const existingSections = classData.sections.map(s => s.name)
-      setSelectedSections(existingSections)
+      form.setValue('section', classData.section)
+      form.setValue('class_teacher_id', classData.class_teacher_id)
+      form.setValue('school_id', classData.school_id)
     }
   }, [mode, classData, open, form])
 
   const onSubmit = async (data: CreateClassFormData) => {
     setIsSubmitting(true)
     try {
-      // Validate that sections are selected
-      if (selectedSections.length === 0) {
-        console.error('No sections selected')
-        return
-      }
-
       if (mode === 'edit' && classData) {
-        // Update existing class while preserving teacher assignments
-        const updatedSections = selectedSections.map((sectionName) => {
-          // Find existing section with same name to preserve teacher assignment
-          const existingSection = classData.sections.find(s => s.name === sectionName)
-          
-          if (existingSection) {
-            // Preserve existing section data
-            return {
-              ...existingSection,
-              name: sectionName,
-              updatedAt: new Date().toISOString()
-            }
-          } else {
-            // Create new section if it doesn't exist
-            return {
-              id: `${classData.id}-${sectionName}-${Date.now()}`,
-              name: sectionName,
-              classTeacherId: null,
-              studentCount: 0,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-          }
-        })
-
-        const updateData = {
-          name: data.name,
-          sections: updatedSections,
-        }
-
-        console.log('Updating class with data:', updateData) // Debug log
-        console.log('Preserved teacher assignments for sections:', 
-          updatedSections.filter(s => s.classTeacherId).map(s => `${s.name}: ${s.classTeacherId}`)
-        ) // Debug log
-
-        const result = await updateClass(classData.id, updateData)
-        
+        const result = await updateClass(classData.id, data)
         if (result.success) {
-          console.log('Class updated successfully') // Debug log
           setOpen(false)
           form.reset()
-          setSelectedSections([])
-          // You can add a toast notification here
         } else {
           console.error('Failed to update class:', result.error)
         }
       } else {
-        // Create new class
-        const newClassData: CreateClassData = {
-          name: data.name,
-          sections: selectedSections,
-        }
-
-        console.log('Creating class with data:', newClassData) // Debug log
-
-        const result = await createClass(newClassData)
-        
+        const result = await createClass(data)
         if (result.success) {
-          console.log('Class created successfully') // Debug log
           setOpen(false)
           form.reset()
-          setSelectedSections([])
-          // You can add a toast notification here
         } else {
           console.error('Failed to create class:', result.error)
         }
@@ -164,17 +114,8 @@ export function CreateClassDialog({ children, mode = 'create', classData }: Crea
     }
   }
 
-  const handleSectionToggle = (section: string) => {
-    setSelectedSections(prev => 
-      prev.includes(section)
-        ? prev.filter(s => s !== section)
-        : [...prev, section]
-    )
-  }
-
-  const removeSection = (section: string) => {
-    setSelectedSections(prev => prev.filter(s => s !== section))
-  }
+  // Filter teachers by school ID and active status
+  // const availableTeachers = teachers.filter(t => t.school_id === schoolId && t.is_active)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -211,69 +152,61 @@ export function CreateClassDialog({ children, mode = 'create', classData }: Crea
               )}
             />
 
-            <div className="space-y-3">
-              <FormLabel>Select Sections *</FormLabel>
-              
-              {/* Selected Sections Display */}
-              {selectedSections.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedSections.map((section) => (
-                    <Badge key={section} variant="secondary" className="gap-1">
-                      {section}
-                      <button
-                        type="button"
-                        onClick={() => removeSection(section)}
-                        className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
+            <FormField
+              control={form.control}
+              name="section"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Section</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a section" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AVAILABLE_SECTIONS.map((section) => (
+                        <SelectItem key={section} value={section}>
+                          {section}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
+            />
 
-              {/* Section Selection Grid */}
-              <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                {AVAILABLE_SECTIONS.map((section) => (
-                  <Button
-                    key={section}
-                    type="button"
-                    variant={selectedSections.includes(section) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleSectionToggle(section)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {section}
-                  </Button>
-                ))}
-              </div>
-              
-              {selectedSections.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Select at least one section from the grid above
-                </p>
+            <FormField
+              control={form.control}
+              name="class_teacher_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Class Teacher</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a teacher" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name || 'Unknown'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setOpen(false)
-                  form.reset()
-                  setSelectedSections([])
-                }}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || selectedSections.length === 0}
-              >
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === 'edit' ? 'Update Class' : 'Create Class'}
+                {mode === 'edit' ? 'Update' : 'Create'} Class
               </Button>
             </DialogFooter>
           </form>
