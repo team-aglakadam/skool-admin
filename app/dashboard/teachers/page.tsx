@@ -11,7 +11,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useTeachers, TeachersProvider } from "@/contexts/TeachersContext";
 import { AddTeacherDialog } from "./AddTeacherDialog";
 import { GenericTable } from "@/app/components/table";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher } from "@/types/teacher";
 import { DeleteUserModal } from "@/app/components/DeleteUserModal";
 import { toast } from "sonner";
 
@@ -113,7 +113,7 @@ function TeachersPageContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {teachers.filter((t) => t.status === "active").length}
+              {teachers.filter((t) => t.is_active).length}
             </div>
           </CardContent>
         </Card>
@@ -187,9 +187,9 @@ const teacherColumns: ColumnDef<Teacher>[] = [
       return (
         <div className="text-sm">
           <div>{teacher.mobile}</div>
-          <div className="text-muted-foreground">
-            {teacher.gender}, {teacher.bloodGroup}
-          </div>
+          <p className="text-muted-foreground">
+            {teacher.users?.full_name || 'Unknown'}
+          </p>
         </div>
       );
     },
