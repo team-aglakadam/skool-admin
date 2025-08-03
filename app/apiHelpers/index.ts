@@ -54,6 +54,7 @@ export async function addTeacher(payload: CreateTeacherData) {
 }
 
 import { Teacher } from '../types/teacher';
+import { CreateClassData, UpdateClassData } from '@/contexts/ClassesContext';
 
 export type CreateTeacherData = Omit<Teacher, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
 export type UpdateTeacherData = Partial<Omit<Teacher, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
@@ -76,17 +77,78 @@ export async function updateTeacher(id: string, updates: UpdateTeacherData) {
 }
 
 export async function deleteTeacher(id: string) {
-  const res = await fetch("/api/teachers", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ id }),
+  const res = await fetch(`/api/teachers/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
   });
 
-  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to delete teacher');
+  }
+
+  return res.json();
+}
+
+// Classes API helpers
+export async function getClasses(schoolId: string | null) {
+  const res = await fetch(`/api/classes?school_id=${schoolId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to fetch classes');
+  return res.json();
+}
+
+export async function addClass(payload: CreateClassData) {
+  const res = await fetch('/api/classes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to add class');
+  }
+  return res.json();
+}
+
+export async function updateClass(id: string, updates: UpdateClassData) {
+  const res = await fetch(`/api/classes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ ...updates, id }),
+  });
 
   if (!res.ok) {
-    throw new Error(data.error || "Failed to delete teacher");
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to update class');
   }
-  return data;
+
+  return res.json();
+}
+
+export async function deleteClass(id: string) {
+  const res = await fetch(`/api/classes?id=${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to delete class');
+  }
+
+  return res.json();
 }
