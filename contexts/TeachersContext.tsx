@@ -1,202 +1,171 @@
-'use client'
+"use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getClasses,
-  addClass as addClassApi,
-  updateClass as updateClassApi,
-  deleteClass as deleteClassApi,
-} from '@/app/apiHelpers'
-import { useAuth } from '@/contexts/AuthContext'
-import { toast } from 'sonner'
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getTeachers,
+  addTeacher as addTeacherApi,
+  deleteTeacher as deleteTeacherApi,
+  updateTeacher as updateTeacherApi,
+  UpdateTeacherData,
+} from "@/app/apiHelpers";
+import { Teacher } from "@/app/types/teacher";
+import { useAuth } from "@/contexts/AuthContext";
 
-export type Class = {
-  id: string
-  name: string
-  section: string
-  class_teacher_id: string | null
-  school_id: string
-  teachers?: {
-    id: string
-    user_id: string
-    users: {
-      full_name: string
-      email: string
-    }
-  }
-  created_at: string
+export type CreateTeacherData = Omit<
+  Teacher,
+  "id" | "status" | "createdAt" | "updatedAt"
+>;
+
+interface TeachersContextType {
+  teachers: Teacher[];
+  loading: boolean;
+  addTeacher: (
+    teacherData: CreateTeacherData
+  ) => Promise<{ success: boolean; error?: string; data?: { message?: string } }>;
+  updateTeacher: (
+    id: string,
+    updates: UpdateTeacherData
+  ) => Promise<{ success: boolean; error?: string; message?: string }>;
+  deleteTeacher: (id: string) => Promise<{ success: boolean; error?: string }>;
+  getTeacherById: (id: string) => Teacher | undefined;
+  activeTeachers: Teacher[];
+  inactiveTeachers: Teacher[];
+  totalTeachers: number;
 }
 
-export type CreateClassData = {
-  name: string
-  section: string
-  class_teacher_id: string | null
-  school_id: string
-}
+const TeachersContext = createContext<TeachersContextType | undefined>(
+  undefined
+);
 
-export type UpdateClassData = Partial<Omit<CreateClassData, 'school_id'>>
+export function TeachersProvider({ children }: { children: ReactNode }) {
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const { schoolId } = useAuth();
 
-interface ClassesContextType {
-  classes: Class[]
-  loading: boolean
-  
-  // Class operations
-  createClass: (classData: CreateClassData) => Promise<{ success: boolean; error?: string; data?: { message?: string } }>
-  updateClass: (id: string, updates: UpdateClassData) => Promise<{ success: boolean; error?: string; message?: string }>
-  deleteClass: (id: string) => Promise<{ success: boolean; error?: string }>
-  
-  // Utility functions
-  getClassById: (id: string) => Class | undefined
-  searchClasses: (searchTerm: string) => Class[]
-  getTotalStudents: () => number
-  getTotalSections: () => number
-  totalClasses: number
-}
-
-const ClassesContext = createContext<ClassesContextType | undefined>(undefined)
-
-export function ClassesProvider({ children }: { children: ReactNode }) {
-  const [classes, setClasses] = useState<Class[]>([])
-  const { schoolId } = useAuth()
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['classes', schoolId],
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["teachers", schoolId],
     queryFn: ({ queryKey }) => {
-      const [, schoolId] = queryKey
-      return getClasses(schoolId)
+      const [, schoolId] = queryKey;
+      return getTeachers(schoolId);
     },
-    enabled: !!schoolId,
-  })
+    enabled: !!schoolId, // Only run the query when schoolId is available
+  });
 
   useEffect(() => {
-    if (data?.data) {
-      setClasses(data.data)
+    if (data?.teachers) {
+      setTeachers(data.teachers);
     }
-  }, [data])
+  }, [data]);
 
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
-  const addClassMutation = useMutation({
-    mutationFn: (classData: CreateClassData) => addClassApi(classData),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['classes', schoolId] })
-      toast.success(response.message)
+  const addTeacherMutation = useMutation({
+    mutationFn: (teacherData: CreateTeacherData) => addTeacherApi(teacherData),
+    onSuccess: () => {
+      // Invalidate and refetch the teachers query
+      queryClient.invalidateQueries({ queryKey: ["teachers", schoolId] });
     },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
-  })
+  });
 
-  const updateClassMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: UpdateClassData }) =>
-      updateClassApi(id, updates),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['classes', schoolId] })
-      toast.success(response.message)
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
-  })
+  const deleteTeacherMutation = useMutation({
+    mutationFn: (id: string) => deleteTeacherApi(id),
+  });
 
-  const deleteClassMutation = useMutation({
-    mutationFn: deleteClassApi,
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['classes', schoolId] })
-      toast.success(response.message)
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
-  })
-
-  const createClass = async (classData: CreateClassData) => {
+  const addTeacher = async (
+    teacherData: CreateTeacherData
+  ): Promise<{ success: boolean; error?: string; data: object }> => {
     try {
-      const response = await addClassMutation.mutateAsync(classData)
-      return { success: true, data: response }
+      const response = await addTeacherMutation.mutateAsync(teacherData);
+      return { success: true, data: response };
     } catch (error) {
-      console.error('Error creating class:', error)
+      console.error("Error adding teacher:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create class',
+        error: error instanceof Error ? error.message : "Failed to add teacher",
         data: {},
-      }
+      };
     }
-  }
+  };
 
-  const updateClass = async (id: string, updates: UpdateClassData) => {
+  const updateTeacherMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: UpdateTeacherData }) =>
+      updateTeacherApi(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teachers", schoolId] });
+    },
+  });
+
+  const updateTeacher = async (
+    id: string,
+    updates: UpdateTeacherData
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await updateClassMutation.mutateAsync({ id, updates })
-      return { success: true, message: response.message }
+      await updateTeacherMutation.mutateAsync({ id, updates });
+      return { success: true };
     } catch (error) {
-      console.error('Error updating class:', error)
+      console.error("Error updating teacher:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update class',
-      }
+        error: error instanceof Error ? error.message : "Failed to update teacher",
+      };
     }
-  }
+  };
 
-  const deleteClass = async (id: string) => {
+  const deleteTeacher = async (
+    id: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await deleteClassMutation.mutateAsync(id)
-      return { success: true, message: response.message }
+      const response = await deleteTeacherMutation.mutateAsync(id);
+      if (response.message) {
+        refetch();
+      }
+      return { success: true };
     } catch (error) {
-      console.error('Error deleting class:', error)
+      console.error("Error deleting teacher:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete class',
-      }
+        error:
+          error instanceof Error ? error.message : "Failed to delete teacher",
+      };
     }
-  }
+  };
 
-  const getClassById = (id: string) => {
-    return classes.find(c => c.id === id)
-  }
+  const getTeacherById = (id: string): Teacher | undefined => {
+    return teachers.find((teacher) => teacher.id === id);
+  };
 
-  const searchClasses = (searchTerm: string) => {
-    const term = searchTerm.toLowerCase()
-    return classes.filter(
-      c =>
-        c.name.toLowerCase().includes(term) ||
-        c.section.toLowerCase().includes(term)
-    )
-  }
+  const activeTeachers = teachers.filter((t) => t.status === "active");
+  const inactiveTeachers = teachers.filter((t) => t.status === "inactive");
 
-  const getTotalStudents = () => {
-    // This will be implemented when student data is available
-    return 0
-  }
-
-  const getTotalSections = () => {
-    return new Set(classes.map(c => c.section)).size
-  }
-
-  const value: ClassesContextType = {
-    classes,
+  const value: TeachersContextType = {
+    teachers,
     loading: isLoading,
-    createClass,
-    updateClass,
-    deleteClass,
-    getClassById,
-    searchClasses,
-    getTotalStudents,
-    getTotalSections,
-    totalClasses: classes.length
-  }
+    addTeacher,
+    updateTeacher,
+    deleteTeacher,
+    getTeacherById,
+    activeTeachers,
+    inactiveTeachers,
+    totalTeachers: teachers.length,
+  };
 
   return (
-    <ClassesContext.Provider value={value}>
+    <TeachersContext.Provider value={value}>
       {children}
-    </ClassesContext.Provider>
-  )
+    </TeachersContext.Provider>
+  );
 }
 
-export function useClasses() {
-  const context = useContext(ClassesContext)
+export function useTeachers() {
+  const context = useContext(TeachersContext);
   if (context === undefined) {
-    throw new Error('useClasses must be used within a ClassesProvider')
+    throw new Error("useTeachers must be used within a TeachersProvider");
   }
-  return context
+  return context;
 }
