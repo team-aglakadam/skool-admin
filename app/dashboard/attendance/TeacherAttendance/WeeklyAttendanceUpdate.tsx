@@ -1,19 +1,35 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, XCircle, Plane, Heart, Calendar as CalendarIcon, Save, Edit3, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { CheckCircle, XCircle, Calendar as CalendarIcon, Save, Edit3, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Teacher } from '@/app/types/teacher';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-type AttendanceStatus = 'present' | 'absent' | 'holiday' | 'sick' | 'personal';
+type AttendanceStatus = 'present' | 'absent' | 'leave';
+
+interface TeacherAttendanceRecord {
+  id: string;
+  teacher_id: string;
+  date: string;
+  status: AttendanceStatus;
+  remarks?: string;
+}
+
+interface ApiResponse {
+  data: TeacherAttendanceRecord[];
+  message: string;
+}
 
 interface WeeklyAttendanceData {
   teacherId: string;
@@ -31,19 +47,111 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
   const [editableDate, setEditableDate] = useState(new Date());
   const [weeklyAttendanceData, setWeeklyAttendanceData] = useState<Record<string, WeeklyAttendanceData>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Get current week dates
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
+  // Fetch attendance data for the week
+  const { data: existingAttendance, isLoading } = useQuery<ApiResponse>({
+    queryKey: ['teacher-attendance-week', format(weekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      try {
+        const response = await fetch(
+          `/api/teacher-attendance?startDate=${format(weekStart, 'yyyy-MM-dd')}&endDate=${format(weekEnd, 'yyyy-MM-dd')}`
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch attendance data');
+        }
+        
+        return response.json();
+      } catch (err) {
+        console.error('Error fetching attendance:', err);
+        throw err;
+      }
+    },
+    retry: 2,
+    staleTime: 30000 // Consider data fresh for 30 seconds
+  });
+
+  // Save attendance mutation
+  const saveAttendanceMutation = useMutation({
+    mutationFn: async (data: { attendanceData: WeeklyAttendanceData[]; marked_by_admin_id: string }) => {
+      try {
+        const response = await fetch('/api/teacher-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to save attendance');
+        }
+
+        return response.json();
+      } catch (err) {
+        console.error('Error saving attendance:', err);
+        throw err;
+      }
+    },
+    onMutate: async (newData) => {
+      await queryClient.cancelQueries({ queryKey: ['teacher-attendance-week'] });
+      const previousData = queryClient.getQueryData(['teacher-attendance-week']);
+      
+      queryClient.setQueryData(['teacher-attendance-week'], () => ({
+        data: newData.attendanceData.map(item => ({
+          id: `temp-${item.teacherId}-${item.date}`,
+          teacher_id: item.teacherId,
+          date: item.date,
+          status: item.status,
+          remarks: item.notes
+        })),
+        message: 'Updating attendance...'
+      }));
+      
+      return { previousData };
+    },
+    onSuccess: (response) => {
+      toast.success(response.message);
+      queryClient.invalidateQueries({ queryKey: ['teacher-attendance-week'] });
+      setIsEditing(false);
+    },
+    onError: (error: Error, _variables, context) => {
+      toast.error(error.message);
+      if (context?.previousData) {
+        queryClient.setQueryData(['teacher-attendance-week'], context.previousData);
+      }
+    }
+  });
+
+  // Update local state when existing attendance data is fetched
+  useEffect(() => {
+    if (existingAttendance?.data) {
+      const newData: Record<string, WeeklyAttendanceData> = {};
+      existingAttendance.data.forEach((record) => {
+        const key = `${record.teacher_id}-${record.date}`;
+        newData[key] = {
+          teacherId: record.teacher_id,
+          date: record.date,
+          status: record.status,
+          notes: record.remarks
+        };
+      });
+      setWeeklyAttendanceData(newData);
+    }
+  }, [existingAttendance]);
+
   const statusOptions = [
     { value: 'present', label: 'Present', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
     { value: 'absent', label: 'Absent', icon: XCircle, color: 'bg-red-100 text-red-800' },
-    { value: 'holiday', label: 'Holiday', icon: Plane, color: 'bg-blue-100 text-blue-800' },
-    { value: 'sick', label: 'Sick Leave', icon: Heart, color: 'bg-orange-100 text-orange-800' },
-    { value: 'personal', label: 'Personal Leave', icon: CalendarIcon, color: 'bg-purple-100 text-purple-800' },
-  ];
+    { value: 'leave', label: 'Leave', icon: CalendarIcon, color: 'bg-purple-100 text-purple-800' },
+  ] as const;
 
   const handleWeeklyStatusChange = (teacherId: string, date: string, status: AttendanceStatus) => {
     const key = `${teacherId}-${date}`;
@@ -79,10 +187,32 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
     return Math.round((presentDays / weekDays.length) * 100);
   };
 
-  const handleSaveAll = () => {
-    // TODO: Implement save functionality
-    console.log('Saving weekly attendance data:', weeklyAttendanceData);
-    setIsEditing(false);
+  const handleSaveAll = async () => {
+    if (!user?.id) {
+      toast.error('User not authenticated');
+      return;
+    }
+
+    const attendanceArray = Object.entries(weeklyAttendanceData).map(([, data]) => ({
+      teacherId: data.teacherId,
+      date: data.date,
+      status: data.status,
+      notes: data.notes
+    }));
+
+    if (attendanceArray.length === 0) {
+      toast.error('No attendance data to save');
+      return;
+    }
+
+    try {
+      await saveAttendanceMutation.mutateAsync({
+        attendanceData: attendanceArray,
+        marked_by_admin_id: user.id
+      });
+    } catch (error) {
+      console.error('Error in handleSaveAll:', error);
+    }
   };
 
   const handleClearSelectedDate = () => {
@@ -111,6 +241,17 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
     }
   };
 
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2">Loading attendance data...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -127,7 +268,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek('prev')}
-                disabled={isEditing}
+                disabled={isEditing || saveAttendanceMutation.isPending}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -135,7 +276,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek('next')}
-                disabled={isEditing}
+                disabled={isEditing || saveAttendanceMutation.isPending}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -147,7 +288,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={isEditing}
+                    disabled={isEditing || saveAttendanceMutation.isPending}
                     className={cn(
                       "w-[160px] justify-start text-left font-normal",
                       !editableDate && "text-muted-foreground",
