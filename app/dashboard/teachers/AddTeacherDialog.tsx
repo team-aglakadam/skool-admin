@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTeachers, CreateTeacherData } from "@/contexts/TeachersContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { Teacher } from "@/types/teacher";
@@ -88,11 +89,8 @@ export function AddTeacherDialog({
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    addTeacher,
-    // addTeacherStatus: { isPending, isError, isSuccess, error, reset },
-    updateTeacher,
-  } = useTeachers();
+  const { addTeacher, updateTeacher } = useTeachers();
+  const { schoolId } = useAuth();
 
   const form = useForm<AddTeacherFormData>({
     resolver: zodResolver(addTeacherSchema),
@@ -170,7 +168,7 @@ export function AddTeacherDialog({
             ? data.dateOfJoining.toISOString().split("T")[0]
             : '',
           subjects: [],
-          school_id: '', // This should be set from the user's context
+          school_id: schoolId || '', // Get school_id from AuthContext
           is_active: true
         };
         const result = await addTeacher(newTeacherData);
