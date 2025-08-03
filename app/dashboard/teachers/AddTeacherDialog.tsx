@@ -36,7 +36,7 @@ import {
 import { useTeachers, CreateTeacherData } from "@/contexts/TeachersContext";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher } from "@/types/teacher";
 
 // Enhanced validation schema
 const addTeacherSchema = z.object({
@@ -49,15 +49,15 @@ const addTeacherSchema = z.object({
     .string()
     .regex(/^\d{10}$/, "Mobile number must be exactly 10 digits"),
   dateOfJoining: z.date().optional(),
-  gender: z.enum(["male", "female", "other", "prefer-not-to-say"]),
-  bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]),
+  gender: z.enum(["male", "female", "other", "prefer-not-to-say"] as const),
+  bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const),
   dateOfBirth: z.date({
     // required_error: "Date of birth is required",
     // invalid_type_error: "Please select a valid date of birth",
   }),
   homeAddress: z.string().optional(),
   educationDetails: z.string().min(1, "Education details are required"),
-  employmentType: z.enum(["full-time", "part-time", "contract"]),
+  employmentType: z.enum(["full-time", "part-time", "contract"] as const),
 });
 type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
 
@@ -157,12 +157,21 @@ export function AddTeacherDialog({
       } else {
         // Create new teacher
         const newTeacherData: CreateTeacherData = {
-          ...data,
+          name: data.name,
+          email: data.email,
+          mobile: data.mobile,
+          gender: data.gender,
+          bloodGroup: data.bloodGroup,
+          dateOfBirth: data.dateOfBirth.toISOString().split("T")[0],
+          homeAddress: data.homeAddress || '',
+          educationDetails: data.educationDetails,
+          employmentType: data.employmentType,
           dateOfJoining: data.dateOfJoining
             ? data.dateOfJoining.toISOString().split("T")[0]
-            : undefined,
-          dateOfBirth: data.dateOfBirth.toISOString().split("T")[0],
+            : '',
           subjects: [],
+          school_id: '', // This should be set from the user's context
+          is_active: true
         };
         const result = await addTeacher(newTeacherData);
 
