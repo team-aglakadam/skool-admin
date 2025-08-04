@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { attendanceData, date, marked_by_admin_id } = body
 
-    if (!attendanceData || !Array.isArray(attendanceData) || !date || !marked_by_admin_id) {
+    if (!attendanceData || !Array.isArray(attendanceData) || !marked_by_admin_id) {
       return NextResponse.json(
         { error: 'Invalid request data', message: 'Missing required fields' },
         { status: 400 }
@@ -24,33 +24,61 @@ export async function POST(request: NextRequest) {
     }
 
     // Format the attendance data for insertion
+    // Handle both single-date (daily) and multi-date (weekly) scenarios
     const formattedAttendance: TeacherAttendanceData[] = attendanceData.map(item => ({
       teacher_id: item.teacherId,
-      date,
+      date: item.date || date, // Use item.date if provided (weekly), otherwise use root date (daily)
       status: item.status === 'sick' || item.status === 'personal' ? 'leave' : item.status,
       remarks: item.notes,
       marked_by_admin_id
     }))
 
-    // First, delete any existing attendance records for the given date
-    const { error: deleteError } = await supabase
-      .from('teacher_attendance')
-      .delete()
-      .eq('date', date)
-
-    if (deleteError) {
-      console.error('Error deleting existing attendance:', deleteError)
-      throw new Error('Failed to update attendance records')
+    // Validate that all records have dates
+    const invalidRecords = formattedAttendance.filter(item => !item.date)
+    if (invalidRecords.length > 0) {
+      return NextResponse.json(
+        { error: 'Invalid request data', message: 'Missing date for some attendance records' },
+        { status: 400 }
+      )
     }
 
-    // Insert new attendance records
-    const { error: insertError } = await supabase
-      .from('teacher_attendance')
-      .insert(formattedAttendance)
+    // Handle each attendance record individually to preserve existing records
+    for (const attendance of formattedAttendance) {
+      // Check if record exists
+      const { data: existingRecord } = await supabase
+        .from('teacher_attendance')
+        .select('id')
+        .eq('teacher_id', attendance.teacher_id)
+        .eq('date', attendance.date)
+        .single()
 
-    if (insertError) {
-      console.error('Error inserting attendance:', insertError)
-      throw new Error('Failed to save attendance records')
+      if (existingRecord) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('teacher_attendance')
+          .update({
+            status: attendance.status,
+            remarks: attendance.remarks,
+            marked_by_admin_id: attendance.marked_by_admin_id
+          })
+          .eq('teacher_id', attendance.teacher_id)
+          .eq('date', attendance.date)
+
+        if (updateError) {
+          console.error('Error updating attendance:', updateError)
+          throw new Error('Failed to update attendance record')
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('teacher_attendance')
+          .insert(attendance)
+
+        if (insertError) {
+          console.error('Error inserting attendance:', insertError)
+          throw new Error('Failed to insert attendance record')
+        }
+      }
     }
 
     return NextResponse.json({

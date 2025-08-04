@@ -134,7 +134,7 @@ function TeachersPageContent() {
       <GenericTable<Teacher>
         data={teachers}
         columns={teacherColumns}
-        pageSize={3}
+        pageSize={10}
         onEdit={(row) => {
           console.log("row", row);
           setTeacherToEdit(row);

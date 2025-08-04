@@ -31,6 +31,7 @@ export type GenericTableProps<T> = {
   pageSize?: number;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
+  showActions?: boolean;
 };
 
 export function GenericTable<T extends object>({
@@ -39,6 +40,7 @@ export function GenericTable<T extends object>({
   pageSize = 5,
   onEdit,
   onDelete,
+  showActions = true,
 }: GenericTableProps<T>) {
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -67,7 +69,10 @@ export function GenericTable<T extends object>({
 
   const table = useReactTable({
     data,
-    columns: useMemo(() => [...columns, actionColumn], [columns]),
+    columns: useMemo(
+      () => (showActions ? [...columns, actionColumn] : columns),
+      [columns]
+    ),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

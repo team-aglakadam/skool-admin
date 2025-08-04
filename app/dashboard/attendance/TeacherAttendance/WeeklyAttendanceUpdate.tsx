@@ -24,6 +24,13 @@ interface TeacherAttendanceRecord {
   date: string;
   status: AttendanceStatus;
   remarks?: string;
+  teachers?: {
+    id: string;
+    users: {
+      full_name: string;
+      email: string;
+    };
+  };
 }
 
 interface ApiResponse {
@@ -41,12 +48,17 @@ interface WeeklyAttendanceData {
 interface WeeklyAttendanceUpdateProps {
   teachers: Teacher[];
   selectedDate: Date;
+  onDateChange: (date: Date) => void;
 }
 
-const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teachers, selectedDate }) => {
+const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teachers, selectedDate, onDateChange }) => {
   const [editableDate, setEditableDate] = useState(new Date());
   const [weeklyAttendanceData, setWeeklyAttendanceData] = useState<Record<string, WeeklyAttendanceData>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [lastUpdatedInfo, setLastUpdatedInfo] = useState<{
+    updatedBy: string;
+    updatedAt: string;
+  } | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -54,6 +66,11 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  // Check if current week is editable (only current week)
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const isCurrentWeek = isSameDay(weekStart, currentWeekStart);
+  const canEdit = isCurrentWeek;
 
   // Fetch attendance data for the week
   const { data: existingAttendance, isLoading } = useQuery<ApiResponse>({
@@ -119,7 +136,9 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
     },
     onSuccess: (response) => {
       toast.success(response.message);
+      // Invalidate both weekly and daily attendance queries to ensure cross-view consistency
       queryClient.invalidateQueries({ queryKey: ['teacher-attendance-week'] });
+      queryClient.invalidateQueries({ queryKey: ['teacher-attendance'] }); // This covers daily attendance
       setIsEditing(false);
     },
     onError: (error: Error, _variables, context) => {
@@ -134,7 +153,9 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
   useEffect(() => {
     if (existingAttendance?.data) {
       const newData: Record<string, WeeklyAttendanceData> = {};
-      existingAttendance.data.forEach((record) => {
+      let latestUpdate: { updatedBy: string; updatedAt: string } | null = null;
+      
+      existingAttendance.data.forEach((record: TeacherAttendanceRecord) => {
         const key = `${record.teacher_id}-${record.date}`;
         newData[key] = {
           teacherId: record.teacher_id,
@@ -142,18 +163,32 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
           status: record.status,
           notes: record.remarks
         };
+        
+        // Track the most recent update info (you might want to add updated_at field to DB)
+        if (record.teachers?.users?.full_name) {
+          latestUpdate = {
+            updatedBy: record.teachers.users.full_name,
+            updatedAt: new Date().toLocaleString(),
+          };
+        }
       });
+      
       setWeeklyAttendanceData(newData);
+      setLastUpdatedInfo(latestUpdate);
     }
   }, [existingAttendance]);
 
   const statusOptions = [
-    { value: 'present', label: 'Present', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
-    { value: 'absent', label: 'Absent', icon: XCircle, color: 'bg-red-100 text-red-800' },
-    { value: 'leave', label: 'Leave', icon: CalendarIcon, color: 'bg-purple-100 text-purple-800' },
-  ] as const;
+    { value: 'present', label: 'Present', icon: CheckCircle },
+    { value: 'absent', label: 'Absent', icon: XCircle },
+  ];
 
   const handleWeeklyStatusChange = (teacherId: string, date: string, status: AttendanceStatus) => {
+    if (!canEdit) {
+      toast.error("You can only edit attendance for the current week");
+      return;
+    }
+    
     const key = `${teacherId}-${date}`;
     setWeeklyAttendanceData(prev => ({
       ...prev,
@@ -161,6 +196,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
         teacherId,
         date,
         status,
+        notes: prev[key]?.notes || ''
       }
     }));
     setIsEditing(true);
@@ -232,13 +268,11 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
   const navigateWeek = (direction: 'prev' | 'next') => {
     if (isEditing) return; // Disable navigation when editing
     
-    if (direction === 'prev') {
-      // This would need to be handled by parent component
-      console.log('Navigate to previous week');
-    } else {
-      // This would need to be handled by parent component
-      console.log('Navigate to next week');
-    }
+    const newDate = direction === 'prev' 
+      ? subWeeks(selectedDate, 1) 
+      : addWeeks(selectedDate, 1);
+    
+    onDateChange(newDate);
   };
 
   if (isLoading) {
@@ -257,10 +291,29 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <CardTitle>Weekly Attendance Overview</CardTitle>
-            <CardDescription>
-              Week of {format(weekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd, yyyy')}
+            <CardTitle className="text-xl font-semibold text-gray-900">
+              Weekly Attendance Overview
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-600">
+              Week of{" "}
+              <span className="font-medium text-gray-800">
+                {format(weekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd, yyyy')}
+              </span>
             </CardDescription>
+            {!canEdit && (
+              <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md inline-flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {isCurrentWeek ? "Only current week can be edited" : "Past/future weeks are read-only"}
+              </div>
+            )}
+            {lastUpdatedInfo && (
+              <div className="text-xs text-gray-500 flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                Last updated by{" "}
+                <span className="font-medium">{lastUpdatedInfo.updatedBy}</span>
+                {" "} at {lastUpdatedInfo.updatedAt}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -382,34 +435,71 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({ teacher
                       return (
                         <td key={day.toISOString()} className="text-center p-2">
                           {isEditableDay ? (
-                            <div className="flex flex-col items-center space-y-1">
-                              <Select
-                                value={status === 'not-marked' ? '' : status}
-                                onValueChange={(value: AttendanceStatus) => handleWeeklyStatusChange(teacher.id, dateKey, value)}
-                              >
-                                <SelectTrigger className="w-20 h-8 text-xs">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {statusOptions.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                      <div className="flex items-center">
-                                        {React.createElement(option.icon, { className: 'h-3 w-3 mr-1' })}
-                                        {option.label}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                            <div className="flex flex-col items-center space-y-2">
+                              <div className="flex space-x-1">
+                                {statusOptions.map((option) => {
+                                  const isSelected = status === option.value;
+                                  return (
+                                    <button
+                                      key={option.value}
+                                      onClick={() => handleWeeklyStatusChange(teacher.id, dateKey, option.value as AttendanceStatus)}
+                                      className={`
+                                        w-10 h-10 rounded-full border-2 transition-all duration-200 
+                                        flex items-center justify-center hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-1
+                                        ${isSelected 
+                                          ? option.value === 'present' 
+                                            ? 'bg-green-500 border-green-500 text-white shadow-lg focus:ring-green-300' 
+                                            : 'bg-red-500 border-red-500 text-white shadow-lg focus:ring-red-300'
+                                          : option.value === 'present'
+                                            ? 'bg-green-50 border-green-200 text-green-600 hover:bg-green-100'
+                                            : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                                        }
+                                      `}
+                                      title={option.label}
+                                    >
+                                      {React.createElement(option.icon, { 
+                                        className: `h-4 w-4 ${isSelected ? 'animate-pulse' : ''}` 
+                                      })}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                               {status !== 'not-marked' && (
-                                <div className="w-3 h-3 rounded-full bg-blue-100 flex items-center justify-center">
-                                  {getWeeklyStatusIcon(status)}
+                                <div className={`
+                                  text-xs font-medium px-2 py-1 rounded-full
+                                  ${status === 'present' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                  }
+                                `}>
+                                  {status === 'present' ? 'Present' : 'Absent'}
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <div className="w-8 h-8 mx-auto rounded-full flex items-center justify-center bg-gray-50">
-                              {getWeeklyStatusIcon(status)}
+                            <div className="flex flex-col items-center space-y-1">
+                              <div className={`
+                                w-10 h-10 rounded-full flex items-center justify-center shadow-sm
+                                ${status === 'present' 
+                                  ? 'bg-green-500 text-white' 
+                                  : status === 'absent'
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-100 text-gray-400'
+                                }
+                              `}>
+                                {getWeeklyStatusIcon(status)}
+                              </div>
+                              {status !== 'not-marked' && (
+                                <div className={`
+                                  text-xs font-medium px-2 py-1 rounded-full
+                                  ${status === 'present' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                  }
+                                `}>
+                                  {status === 'present' ? 'P' : 'A'}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>

@@ -5,8 +5,11 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Calendar, Upload } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import DailyAttendanceUpdate from './DailyAttendanceUpdate';
 import WeeklyAttendanceUpdate from './WeeklyAttendanceUpdate';
 
@@ -29,14 +32,23 @@ const TeacherAttendance = () => {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {format(selectedDate, 'MMM dd, yyyy')}
-                    </Button>
-                    <Button>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Bulk Upload
-                    </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal")}>
+                                <Calendar className="mr-2 h-4 w-4" />
+                                {format(selectedDate, 'PPP')}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(date) => date && setSelectedDate(date)}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+
                 </div>
             </div>
 
@@ -57,6 +69,7 @@ const TeacherAttendance = () => {
                     <WeeklyAttendanceUpdate 
                         teachers={teachers}
                         selectedDate={selectedDate}
+                        onDateChange={setSelectedDate}
                     />
                 </TabsContent>
             </Tabs>
