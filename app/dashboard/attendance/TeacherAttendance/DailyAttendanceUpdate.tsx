@@ -19,8 +19,6 @@ import {
 import {
   CheckCircle,
   XCircle,
-  Plane,
-  Heart,
   Calendar as CalendarIcon,
   Save,
   Loader2,
@@ -43,13 +41,19 @@ interface TeacherAttendanceRecord {
   date: string;
   status: "present" | "absent" | "leave";
   remarks?: string;
+  last_updated_at?: string;
   teachers: {
     id: string;
     user_id: string;
     users: {
       full_name: string;
       email: string;
+      updated_at?: string;
     };
+  };
+  admin_user?: {
+    full_name: string;
+    email: string;
   };
 }
 
@@ -87,6 +91,9 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
     updatedAt: string;
   } | null>(null);
   const [hasBulkChanges, setHasBulkChanges] = useState(false);
+  const [selectedBulkAction, setSelectedBulkAction] = useState<
+    "present" | "absent" | null
+  >(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -109,6 +116,7 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
     if (existingAttendance?.data) {
       const formattedData: Record<string, TeacherAttendanceData> = {};
       let latestUpdate: { updatedBy: string; updatedAt: string } | null = null;
+      let mostRecentTimestamp: Date | null = null;
       
       existingAttendance.data.forEach((record: TeacherAttendanceRecord) => {
         formattedData[record.teacher_id] = {
@@ -116,16 +124,20 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
           status: record.status === "leave" ? "absent" : record.status, // Convert leave to absent for UI
           notes: record.remarks,
         };
-        
-        // Track the most recent update info
-        if (record.teachers?.users?.full_name) {
-          latestUpdate = {
-            updatedBy: record.teachers.users.full_name,
-            updatedAt: new Date().toLocaleString(), // You might want to add updated_at field to DB
-          };
+
+        // Track the most recent attendance update info
+        if (record.last_updated_at && record.admin_user?.full_name) {
+          const updateTimestamp = new Date(record.last_updated_at);
+          if (!mostRecentTimestamp || updateTimestamp > mostRecentTimestamp) {
+            mostRecentTimestamp = updateTimestamp;
+            latestUpdate = {
+              updatedBy: record.admin_user.full_name,
+              updatedAt: updateTimestamp.toLocaleString(),
+            };
+          }
         }
       });
-      
+
       setAttendanceData(formattedData);
       setLastUpdatedInfo(latestUpdate);
       setHasBulkChanges(false);
@@ -181,7 +193,11 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
 
   const handleSaveRow = async (teacherId: string) => {
     const teacherData = attendanceData[teacherId];
-    if (!teacherData || !teacherData.status || teacherData.status === "not-marked") {
+    if (
+      !teacherData ||
+      !teacherData.status ||
+      teacherData.status === "not-marked"
+    ) {
       toast.error("Please select a status before saving");
       return;
     }
@@ -250,15 +266,25 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
   const handleBulkAction = (action: "present" | "absent" | "clear") => {
     if (action === "clear") {
       setAttendanceData({});
+      setEditingRows(new Set());
+      setSelectedBulkAction(null);
     } else {
       const updatedData: Record<string, TeacherAttendanceData> = {};
+      const allTeacherIds = new Set<string>();
+
       teachers.forEach((teacher) => {
         updatedData[teacher.id] = {
           teacherId: teacher.id,
           status: action,
         };
+        allTeacherIds.add(teacher.id);
       });
+
       setAttendanceData(updatedData);
+      // Put all rows in edit mode when mark present/absent is selected
+      setEditingRows(allTeacherIds);
+      // Set the selected bulk action for UI feedback
+      setSelectedBulkAction(action);
     }
     setHasBulkChanges(true);
   };
@@ -272,11 +298,13 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
     try {
       setIsSaving(true);
 
-      const attendanceArray = Object.entries(attendanceData).map(([teacherId, data]) => ({
-        teacherId,
-        status: data.status,
-        notes: data.notes || "",
-      }));
+      const attendanceArray = Object.entries(attendanceData).map(
+        ([teacherId, data]) => ({
+          teacherId,
+          status: data.status,
+          notes: data.notes || "",
+        })
+      );
 
       const response = await fetch("/api/teacher-attendance", {
         method: "POST",
@@ -297,6 +325,10 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
 
       toast.success("Bulk attendance saved successfully!");
       setHasBulkChanges(false);
+      // Return all rows to non-editable state after saving
+      setEditingRows(new Set());
+      // Reset selected bulk action
+      setSelectedBulkAction(null);
 
       // Invalidate and refetch the query
       queryClient.invalidateQueries({
@@ -477,58 +509,60 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
               <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                 <CalendarIcon className="h-3 w-3" />
                 Last updated by{" "}
-                <span className="font-medium">{lastUpdatedInfo.updatedBy}</span>
-                {" "} at {lastUpdatedInfo.updatedAt}
+                <span className="font-medium">
+                  {lastUpdatedInfo.updatedBy}
+                </span>{" "}
+                at {lastUpdatedInfo.updatedAt}
               </div>
             )}
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
-              variant="outline"
+              variant={selectedBulkAction === "present" ? "default" : "outline"}
               size="sm"
               onClick={() => handleBulkAction("present")}
-              className="hover:bg-green-50 hover:border-green-300"
+              className={`${
+                selectedBulkAction === "present"
+                  ? "bg-green-600 hover:bg-green-700 text-white border-green-600"
+                  : "hover:bg-green-50 hover:border-green-300"
+              }`}
               title="Mark all teachers as present for this date"
             >
               <CheckCircle className="h-4 w-4 mr-1" />
-              Mark All Present
+              Mark Present
             </Button>
             <Button
-              variant="outline"
+              variant={selectedBulkAction === "absent" ? "default" : "outline"}
               size="sm"
               onClick={() => handleBulkAction("absent")}
-              className="hover:bg-red-50 hover:border-red-300"
+              className={`${
+                selectedBulkAction === "absent"
+                  ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
+                  : "hover:bg-red-50 hover:border-red-300"
+              }`}
               title="Mark all teachers as absent for this date"
             >
               <XCircle className="h-4 w-4 mr-1" />
-              Mark All Absent
+              Mark Absent
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              onClick={handleBulkSave}
+              disabled={!hasBulkChanges || isSaving}
+              className={`${
+                hasBulkChanges && !isSaving
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
               size="sm"
-              onClick={() => handleBulkAction("clear")}
-              className="hover:bg-gray-50"
-              title="Clear all attendance data for this date"
+              title={hasBulkChanges ? "Save all changes" : "No changes to save"}
             >
-              <X className="h-4 w-4 mr-1" />
-              Clear All
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-1" />
+              )}
+              {isSaving ? "Saving..." : "Save"}
             </Button>
-            {hasBulkChanges && (
-              <Button
-                onClick={handleBulkSave}
-                disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="sm"
-                title="Save all bulk changes"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-1" />
-                )}
-                {isSaving ? "Saving..." : "Save All"}
-              </Button>
-            )}
           </div>
         </div>
       </CardHeader>

@@ -27,7 +27,6 @@ export async function signOutUser() {
 }
 
 export async function getTeachers(schoolId: string | null) {
-  console.log("schoolId1", schoolId);
   const res = await fetch(`/api/teachers?schoolId=${schoolId}`, {
     method: "GET",
     headers: {
@@ -53,23 +52,28 @@ export async function addTeacher(payload: CreateTeacherData) {
   return res.json();
 }
 
-import { Teacher } from '../types/teacher';
+import { Teacher } from "../types/teacher";
 
-export type CreateTeacherData = Omit<Teacher, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
-export type UpdateTeacherData = Partial<Omit<Teacher, 'id' | 'createdAt' | 'updatedAt' | 'status'>>;
+export type CreateTeacherData = Omit<
+  Teacher,
+  "id" | "status" | "createdAt" | "updatedAt"
+>;
+export type UpdateTeacherData = Partial<
+  Omit<Teacher, "id" | "createdAt" | "updatedAt" | "status">
+>;
 
 export async function updateTeacher(id: string, updates: UpdateTeacherData) {
-  const response = await fetch('/api/teachers', {
-    method: 'PATCH',
+  const response = await fetch("/api/teachers", {
+    method: "PATCH",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ id, ...updates }),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Failed to update teacher');
+    throw new Error(error.error || "Failed to update teacher");
   }
 
   return response.json();
