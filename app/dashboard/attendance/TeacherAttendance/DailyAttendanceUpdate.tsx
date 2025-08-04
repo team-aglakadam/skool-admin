@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -32,6 +32,7 @@ import { Teacher } from "@/app/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DailyAttendanceCharts } from "@/app/components/AttendanceCharts";
 
 type AttendanceStatus = "present" | "absent" | "not-marked";
 
@@ -358,6 +359,21 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
     [teachers, attendanceData]
   );
 
+  // Calculate chart data
+  const chartData = useMemo(() => {
+    const present = tableData.filter(t => t.status === "present").length;
+    const absent = tableData.filter(t => t.status === "absent").length;
+    const notMarked = tableData.filter(t => t.status === "not-marked").length;
+    const total = tableData.length;
+
+    return {
+      present,
+      absent,
+      notMarked,
+      total,
+    };
+  }, [tableData]);
+
   if (isLoading) {
     return (
       <Card>
@@ -566,13 +582,23 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <GenericTable
-          data={tableData}
-          columns={columns}
-          pageSize={10}
-          showActions={false}
+      <CardContent className="space-y-6">
+        {/* Attendance Charts */}
+        <DailyAttendanceCharts 
+          attendanceData={chartData}
+          date={format(selectedDate, "EEEE, MMMM dd, yyyy")}
         />
+        
+        {/* Attendance Table */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Teacher Details</h3>
+          <GenericTable
+            data={tableData}
+            columns={columns}
+            pageSize={10}
+            showActions={false}
+          />
+        </div>
       </CardContent>
     </Card>
   );

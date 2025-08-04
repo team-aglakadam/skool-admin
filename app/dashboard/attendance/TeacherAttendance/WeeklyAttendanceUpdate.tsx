@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -42,6 +42,7 @@ import { Teacher } from "@/app/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { WeeklyAttendanceCharts } from "@/app/components/AttendanceCharts";
 
 type AttendanceStatus = "present" | "absent" | "leave";
 
@@ -272,6 +273,28 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
     return weeklyAttendanceData[key]?.status || "not-marked";
   };
 
+  // Calculate chart data for weekly view
+  const weeklyChartData = useMemo(() => {
+    return weekDays.map((day) => {
+      const dateKey = format(day, "yyyy-MM-dd");
+      const dayAttendance = teachers.reduce(
+        (acc, teacher) => {
+          const status = getWeeklyStatus(teacher.id, dateKey);
+          if (status === "present") acc.present++;
+          else if (status === "absent") acc.absent++;
+          else acc.notMarked++;
+          return acc;
+        },
+        { present: 0, absent: 0, notMarked: 0 }
+      );
+
+      return {
+        date: dateKey,
+        ...dayAttendance,
+      };
+    });
+  }, [weekDays, teachers, weeklyAttendanceData]);
+
   const getWeeklyStatusIcon = (status: AttendanceStatus | "not-marked") => {
     if (status === "not-marked") {
       return (
@@ -457,102 +480,133 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 <X className="mr-2 h-4 w-4" />
                 Clear
               </Button>
-              <Button onClick={handleSaveAll} size="sm">
-                <Save className="mr-2 h-4 w-4" />
-                Save
+              <Button
+                onClick={() => setIsEditing(true)}
+                size="sm"
+                variant="outline"
+                disabled={isEditing || saveAttendanceMutation.isPending}
+                className="hover:bg-blue-50 hover:border-blue-300"
+              >
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+              <Button 
+                onClick={handleSaveAll} 
+                size="sm"
+                disabled={!isEditing || saveAttendanceMutation.isPending}
+                className={`${
+                  isEditing && !saveAttendanceMutation.isPending
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                {saveAttendanceMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {saveAttendanceMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-lg border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left p-4 font-medium text-gray-900">
-                    Teacher
-                  </th>
-                  {weekDays.map((day) => {
-                    const isEditableDay = isSameDay(day, editableDate);
-                    return (
-                      <th
-                        key={day.toISOString()}
-                        className="text-center p-4 font-medium text-gray-900"
-                      >
-                        <div className="flex flex-col items-center space-y-1">
-                          <span className="text-sm font-medium">
-                            {format(day, "EEE")}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {format(day, "dd")}
-                          </span>
-                          {isEditableDay && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-2 py-0.5"
-                            >
-                              <Edit3 className="w-3 h-3 mr-1" />
-                              Edit
-                            </Badge>
-                          )}
-                        </div>
-                      </th>
-                    );
-                  })}
-                  <th className="text-center p-4 font-medium text-gray-900">
-                    Week %
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {teachers.map((teacher) => (
-                  <tr
-                    key={teacher.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
-                          {teacher.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {teacher.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {teacher.subjects.join(", ")}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
+      <CardContent className="space-y-6">
+        {/* Weekly Attendance Table */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Weekly Teacher Attendance
+          </h3>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left p-4 font-medium text-gray-900">
+                      Teacher
+                    </th>
                     {weekDays.map((day) => {
-                      const dateKey = format(day, "yyyy-MM-dd");
-                      const status = getWeeklyStatus(teacher.id, dateKey);
                       const isEditableDay = isSameDay(day, editableDate);
-
                       return (
-                        <td key={day.toISOString()} className="text-center p-2">
-                          {isEditableDay ? (
-                            <div className="flex flex-col items-center space-y-2">
-                              <div className="flex space-x-1">
-                                {statusOptions.map((option) => {
-                                  const isSelected = status === option.value;
-                                  return (
-                                    <button
-                                      key={option.value}
-                                      onClick={() =>
-                                        handleWeeklyStatusChange(
-                                          teacher.id,
-                                          dateKey,
-                                          option.value as AttendanceStatus
-                                        )
-                                      }
-                                      className={`
+                        <th
+                          key={day.toISOString()}
+                          className="text-center p-4 font-medium text-gray-900"
+                        >
+                          <div className="flex flex-col items-center space-y-1">
+                            <span className="text-sm font-medium">
+                              {format(day, "EEE")}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {format(day, "dd")}
+                            </span>
+                            {isEditableDay && (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs px-2 py-0.5"
+                              >
+                                <Edit3 className="w-3 h-3 mr-1" />
+                                Edit
+                              </Badge>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
+                    <th className="text-center p-4 font-medium text-gray-900">
+                      Week %
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {teachers.map((teacher) => (
+                    <tr
+                      key={teacher.id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
+                            {teacher.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">
+                              {teacher.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {teacher.subjects.join(", ")}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      {weekDays.map((day) => {
+                        const dateKey = format(day, "yyyy-MM-dd");
+                        const status = getWeeklyStatus(teacher.id, dateKey);
+                        const isEditableDay = isSameDay(day, editableDate);
+
+                        return (
+                          <td
+                            key={day.toISOString()}
+                            className="text-center p-2"
+                          >
+                            {isEditableDay ? (
+                              <div className="flex flex-col items-center space-y-2">
+                                <div className="flex space-x-1">
+                                  {statusOptions.map((option) => {
+                                    const isSelected = status === option.value;
+                                    return (
+                                      <button
+                                        key={option.value}
+                                        onClick={() =>
+                                          handleWeeklyStatusChange(
+                                            teacher.id,
+                                            dateKey,
+                                            option.value as AttendanceStatus
+                                          )
+                                        }
+                                        className={`
                                         w-10 h-10 rounded-full border-2 transition-all duration-200 
                                         flex items-center justify-center hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-1
                                         ${
@@ -565,20 +619,20 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                             : "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
                                         }
                                       `}
-                                      title={option.label}
-                                    >
-                                      {React.createElement(option.icon, {
-                                        className: `h-4 w-4 ${
-                                          isSelected ? "animate-pulse" : ""
-                                        }`,
-                                      })}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {status !== "not-marked" && (
-                                <div
-                                  className={`
+                                        title={option.label}
+                                      >
+                                        {React.createElement(option.icon, {
+                                          className: `h-4 w-4 ${
+                                            isSelected ? "animate-pulse" : ""
+                                          }`,
+                                        })}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {status !== "not-marked" && (
+                                  <div
+                                    className={`
                                   text-xs font-medium px-2 py-1 rounded-full
                                   ${
                                     status === "present"
@@ -586,15 +640,17 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                       : "bg-red-100 text-red-800"
                                   }
                                 `}
-                                >
-                                  {status === "present" ? "Present" : "Absent"}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center space-y-1">
-                              <div
-                                className={`
+                                  >
+                                    {status === "present"
+                                      ? "Present"
+                                      : "Absent"}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center space-y-1">
+                                <div
+                                  className={`
                                 w-10 h-10 rounded-full flex items-center justify-center shadow-sm
                                 ${
                                   status === "present"
@@ -604,12 +660,12 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                     : "bg-gray-100 text-gray-400"
                                 }
                               `}
-                              >
-                                {getWeeklyStatusIcon(status)}
-                              </div>
-                              {status !== "not-marked" && (
-                                <div
-                                  className={`
+                                >
+                                  {getWeeklyStatusIcon(status)}
+                                </div>
+                                {status !== "not-marked" && (
+                                  <div
+                                    className={`
                                   text-xs font-medium px-2 py-1 rounded-full
                                   ${
                                     status === "present"
@@ -617,26 +673,36 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                       : "bg-red-100 text-red-800"
                                   }
                                 `}
-                                >
-                                  {status === "present" ? "P" : "A"}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="text-center p-4">
-                      <Badge variant="secondary" className="text-xs">
-                        {calculateWeekPercentage(teacher.id)}%
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                                  >
+                                    {status === "present" ? "P" : "A"}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="text-center p-4">
+                        <Badge variant="secondary" className="text-xs">
+                          {calculateWeekPercentage(teacher.id)}%
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+
+        {/* Weekly Attendance Charts */}
+        <WeeklyAttendanceCharts
+          weeklyData={weeklyChartData}
+          weekRange={`${format(weekStart, "MMM dd")} - ${format(
+            weekEnd,
+            "MMM dd, yyyy"
+          )}`}
+        />
       </CardContent>
     </Card>
   );
