@@ -89,11 +89,11 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
   selectedDate,
   onDateChange,
 }) => {
-  const [editableDate, setEditableDate] = useState(new Date());
   const [weeklyAttendanceData, setWeeklyAttendanceData] = useState<
     Record<string, WeeklyAttendanceData>
   >({});
-  const [isEditing, setIsEditing] = useState(false);
+  const [editableDates, setEditableDates] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
   const [lastUpdatedInfo, setLastUpdatedInfo] = useState<{
     updatedBy: string;
     updatedAt: string;
@@ -110,6 +110,16 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const isCurrentWeek = isSameDay(weekStart, currentWeekStart);
   const canEdit = isCurrentWeek;
+  
+  // Get current date for editing restriction
+  const currentDate = format(new Date(), "yyyy-MM-dd");
+  const isCurrentDateInWeek = weekDays.some(day => format(day, "yyyy-MM-dd") === currentDate);
+  
+  // Filter teachers based on search term
+  const filteredTeachers = teachers.filter(teacher => 
+    teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    teacher.subjects.some(subject => subject.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   // Fetch attendance data for the week
   const { data: existingAttendance, isLoading } = useQuery<ApiResponse>({
@@ -190,7 +200,6 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
       // Invalidate both weekly and daily attendance queries to ensure cross-view consistency
       queryClient.invalidateQueries({ queryKey: ["teacher-attendance-week"] });
       queryClient.invalidateQueries({ queryKey: ["teacher-attendance"] }); // This covers daily attendance
-      setIsEditing(false);
     },
     onError: (error: Error, _variables, context) => {
       toast.error(error.message);
@@ -247,8 +256,8 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
     date: string,
     status: AttendanceStatus
   ) => {
-    if (!canEdit) {
-      toast.error("You can only edit attendance for the current week");
+    if (!canEdit || date !== currentDate || !editableDates.has(date)) {
+      toast.error("Can only edit attendance for today");
       return;
     }
 
@@ -259,10 +268,65 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
         teacherId,
         date,
         status,
-        notes: prev[key]?.notes || "",
       },
     }));
-    setIsEditing(true);
+  };
+
+  const handleMarkAllForDate = (status: AttendanceStatus) => {
+    if (!canEdit || !isCurrentDateInWeek || !editableDates.has(currentDate)) {
+      toast.error("Can only edit attendance for today");
+      return;
+    }
+
+    const newData = { ...weeklyAttendanceData };
+    filteredTeachers.forEach((teacher) => {
+      const key = `${teacher.id}-${currentDate}`;
+      newData[key] = {
+        teacherId: teacher.id,
+        date: currentDate,
+        status,
+      };
+    });
+    setWeeklyAttendanceData(newData);
+  };
+
+  const handleClearCurrentDay = () => {
+    if (!canEdit || !isCurrentDateInWeek) {
+      toast.error("Can only clear attendance for today");
+      return;
+    }
+
+    const newData = { ...weeklyAttendanceData };
+    filteredTeachers.forEach((teacher) => {
+      const key = `${teacher.id}-${currentDate}`;
+      delete newData[key];
+    });
+    setWeeklyAttendanceData(newData);
+  };
+
+  const toggleDateEdit = (date: string) => {
+    if (!canEdit || date !== currentDate) {
+      toast.error("Can only edit attendance for today");
+      return;
+    }
+
+    const newEditableDates = new Set(editableDates);
+    if (newEditableDates.has(date)) {
+      newEditableDates.delete(date);
+    } else {
+      newEditableDates.add(date);
+    }
+    setEditableDates(newEditableDates);
+  };
+
+  const isDateEdited = (date: string): boolean => {
+    return teachers.some((teacher) => {
+      const key = `${teacher.id}-${date}`;
+      return weeklyAttendanceData[key] || 
+        existingAttendance?.data.some(
+          (record) => record.teacher_id === teacher.id && record.date === date
+        );
+    });
   };
 
   const getWeeklyStatus = (
@@ -340,27 +404,35 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
         attendanceData: attendanceArray,
         marked_by_admin_id: user.id,
       });
+      // After successful save, disable editing for saved dates
+      setEditableDates(new Set());
     } catch (error) {
       console.error("Error in handleSaveAll:", error);
     }
   };
 
-  const handleClearSelectedDate = () => {
-    const editableDateKey = format(editableDate, "yyyy-MM-dd");
-    const newData = { ...weeklyAttendanceData };
+  const handleClearAll = () => {
+    if (!canEdit || !isCurrentDateInWeek) {
+      toast.error("Can only clear attendance for today");
+      return;
+    }
 
-    // Remove all attendance data for the selected date
-    teachers.forEach((teacher) => {
-      const key = `${teacher.id}-${editableDateKey}`;
+    const newData = { ...weeklyAttendanceData };
+    
+    // Remove all attendance data for current date only
+    filteredTeachers.forEach((teacher) => {
+      const key = `${teacher.id}-${currentDate}`;
       delete newData[key];
     });
 
     setWeeklyAttendanceData(newData);
-    setIsEditing(false);
   };
 
   const navigateWeek = (direction: "prev" | "next") => {
-    if (isEditing) return; // Disable navigation when editing
+    if (editableDates.size > 0) {
+      toast.error("Please save or clear changes before navigating");
+      return;
+    }
 
     const newDate =
       direction === "prev"
@@ -421,7 +493,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("prev")}
-                disabled={isEditing || saveAttendanceMutation.isPending}
+                disabled={editableDates.size > 0 || saveAttendanceMutation.isPending}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -429,83 +501,9 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("next")}
-                disabled={isEditing || saveAttendanceMutation.isPending}
+                disabled={editableDates.size > 0 || saveAttendanceMutation.isPending}
               >
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Selected Date:</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isEditing || saveAttendanceMutation.isPending}
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !editableDate && "text-muted-foreground",
-                      isEditing && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <CalendarIcon2 className="mr-2 h-4 w-4" />
-                    {editableDate ? (
-                      format(editableDate, "MMM dd")
-                    ) : (
-                      <span>Pick date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={editableDate}
-                    onSelect={(date) => date && setEditableDate(date)}
-                    disabled={(date) => {
-                      // Disable dates outside the current week
-                      return date < weekStart || date > weekStart;
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleClearSelectedDate}
-                size="sm"
-                variant="outline"
-                disabled={!isEditing}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Clear
-              </Button>
-              <Button
-                onClick={() => setIsEditing(true)}
-                size="sm"
-                variant="outline"
-                disabled={isEditing || saveAttendanceMutation.isPending}
-                className="hover:bg-blue-50 hover:border-blue-300"
-              >
-                <Edit3 className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-              <Button 
-                onClick={handleSaveAll} 
-                size="sm"
-                disabled={!isEditing || saveAttendanceMutation.isPending}
-                className={`${
-                  isEditing && !saveAttendanceMutation.isPending
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {saveAttendanceMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                {saveAttendanceMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
@@ -514,39 +512,146 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
       <CardContent className="space-y-6">
         {/* Weekly Attendance Table */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Weekly Teacher Attendance
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Weekly Teacher Attendance
+            </h3>
+            
+            {/* Search Bar */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search teachers..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              
+              {/* Table Action Buttons */}
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <span className="text-sm font-medium text-gray-700 mr-2">Actions:</span>
+                <Button
+                  onClick={handleClearAll}
+                  size="sm"
+                  variant="outline"
+                  disabled={!isCurrentDateInWeek || !editableDates.has(currentDate) || saveAttendanceMutation.isPending}
+                  className="text-xs"
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Clear Today
+                </Button>
+                <Button 
+                  onClick={handleSaveAll} 
+                  size="sm"
+                  disabled={Object.keys(weeklyAttendanceData).length === 0 || saveAttendanceMutation.isPending}
+                  className={`text-xs ${
+                    Object.keys(weeklyAttendanceData).length > 0 && !saveAttendanceMutation.isPending
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {saveAttendanceMutation.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3 w-3" />
+                  )}
+                  {saveAttendanceMutation.isPending ? "Saving..." : "Save All"}
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Mark All Buttons - Above table rows */}
+          {isCurrentDateInWeek && editableDates.has(currentDate) && (
+            <div className="flex items-center gap-2 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <span className="text-sm font-medium text-blue-800 mr-2">
+                Quick Actions for Today ({format(new Date(), "MMM dd")}):
+              </span>
+              <Button
+                onClick={() => handleMarkAllForDate("present")}
+                size="sm"
+                variant="outline"
+                className="text-xs text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <CheckCircle className="mr-1 h-3 w-3" />
+                Mark All Present
+              </Button>
+              <Button
+                onClick={() => handleMarkAllForDate("absent")}
+                size="sm"
+                variant="outline"
+                className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <XCircle className="mr-1 h-3 w-3" />
+                Mark All Absent
+              </Button>
+              <Button
+                onClick={handleClearCurrentDay}
+                size="sm"
+                variant="outline"
+                className="text-xs text-gray-600 border-gray-200 hover:bg-gray-50"
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear Today
+              </Button>
+            </div>
+          )}
+          
           <div className="rounded-lg border overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Scrollable container for teacher table */}
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <th className="text-left p-4 font-medium text-gray-900">
+                    <th className="text-left p-4 font-medium text-gray-900 sticky left-0 bg-gray-50 z-20">
                       Teacher
                     </th>
                     {weekDays.map((day) => {
-                      const isEditableDay = isSameDay(day, editableDate);
+                      const dateKey = format(day, "yyyy-MM-dd");
+                      const isEditableDay = editableDates.has(dateKey);
+                      const isToday = dateKey === currentDate;
+                      
                       return (
                         <th
                           key={day.toISOString()}
-                          className="text-center p-4 font-medium text-gray-900"
+                          className="text-center p-4 font-medium text-gray-900 min-w-[120px]"
                         >
-                          <div className="flex flex-col items-center space-y-1">
-                            <span className="text-sm font-medium">
-                              {format(day, "EEE")}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {format(day, "dd")}
-                            </span>
-                            {isEditableDay && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs px-2 py-0.5"
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="text-center">
+                              <span className="text-sm font-medium block">
+                                {format(day, "EEE")}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {format(day, "dd")}
+                              </span>
+                              {isToday && (
+                                <span className="text-xs text-blue-600 font-medium">
+                                  Today
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Edit button only for current day */}
+                            {isToday && canEdit && (
+                              <Button
+                                onClick={() => toggleDateEdit(dateKey)}
+                                size="sm"
+                                variant={isEditableDay ? "default" : "outline"}
+                                disabled={saveAttendanceMutation.isPending}
+                                className={`text-xs h-6 px-2 ${
+                                  isEditableDay 
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                                    : "hover:bg-blue-50 hover:border-blue-300"
+                                }`}
                               >
                                 <Edit3 className="w-3 h-3 mr-1" />
-                                Edit
-                              </Badge>
+                                {isEditableDay ? "Editing" : "Edit"}
+                              </Button>
                             )}
                           </div>
                         </th>
@@ -558,12 +663,12 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {teachers.map((teacher) => (
+                  {filteredTeachers.map((teacher) => (
                     <tr
                       key={teacher.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="p-4">
+                      <td className="p-4 sticky left-0 bg-white z-10">
                         <div className="flex items-center space-x-3">
                           <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
                             {teacher.name
@@ -584,12 +689,15 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                       {weekDays.map((day) => {
                         const dateKey = format(day, "yyyy-MM-dd");
                         const status = getWeeklyStatus(teacher.id, dateKey);
-                        const isEditableDay = isSameDay(day, editableDate);
+                        const isEditableDay = editableDates.has(dateKey) && dateKey === currentDate;
+                        const isToday = dateKey === currentDate;
 
                         return (
                           <td
                             key={day.toISOString()}
-                            className="text-center p-2"
+                            className={`text-center p-2 ${
+                              isToday ? "bg-blue-50" : ""
+                            }`}
                           >
                             {isEditableDay ? (
                               <div className="flex flex-col items-center space-y-2">
@@ -607,7 +715,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                           )
                                         }
                                         className={`
-                                        w-10 h-10 rounded-full border-2 transition-all duration-200 
+                                        w-8 h-8 rounded-full border-2 transition-all duration-200 
                                         flex items-center justify-center hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-1
                                         ${
                                           isSelected
@@ -622,7 +730,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                                         title={option.label}
                                       >
                                         {React.createElement(option.icon, {
-                                          className: `h-4 w-4 ${
+                                          className: `h-3 w-3 ${
                                             isSelected ? "animate-pulse" : ""
                                           }`,
                                         })}
@@ -651,7 +759,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                               <div className="flex flex-col items-center space-y-1">
                                 <div
                                   className={`
-                                w-10 h-10 rounded-full flex items-center justify-center shadow-sm
+                                w-8 h-8 rounded-full flex items-center justify-center shadow-sm
                                 ${
                                   status === "present"
                                     ? "bg-green-500 text-white"

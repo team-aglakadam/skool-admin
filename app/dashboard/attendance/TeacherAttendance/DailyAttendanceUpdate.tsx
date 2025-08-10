@@ -118,7 +118,7 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
       const formattedData: Record<string, TeacherAttendanceData> = {};
       let latestUpdate: { updatedBy: string; updatedAt: string } | null = null;
       let mostRecentTimestamp: Date | null = null;
-      
+
       existingAttendance.data.forEach((record: TeacherAttendanceRecord) => {
         formattedData[record.teacher_id] = {
           teacherId: record.teacher_id,
@@ -361,9 +361,9 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
 
   // Calculate chart data
   const chartData = useMemo(() => {
-    const present = tableData.filter(t => t.status === "present").length;
-    const absent = tableData.filter(t => t.status === "absent").length;
-    const notMarked = tableData.filter(t => t.status === "not-marked").length;
+    const present = tableData.filter((t) => t.status === "present").length;
+    const absent = tableData.filter((t) => t.status === "absent").length;
+    const notMarked = tableData.filter((t) => t.status === "not-marked").length;
     const total = tableData.length;
 
     return {
@@ -583,15 +583,11 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Attendance Charts */}
-        <DailyAttendanceCharts 
-          attendanceData={chartData}
-          date={format(selectedDate, "EEEE, MMMM dd, yyyy")}
-        />
-        
         {/* Attendance Table */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Teacher Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Teacher Details
+          </h3>
           <GenericTable
             data={tableData}
             columns={columns}
@@ -599,6 +595,11 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
             showActions={false}
           />
         </div>
+        {/* Attendance Charts */}
+        <DailyAttendanceCharts
+          attendanceData={chartData}
+          date={format(selectedDate, "EEEE, MMMM dd, yyyy")}
+        />
       </CardContent>
     </Card>
   );
