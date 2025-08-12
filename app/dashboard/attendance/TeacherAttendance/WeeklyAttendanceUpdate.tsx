@@ -510,73 +510,90 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Weekly Attendance Table */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Weekly Teacher Attendance
-            </h3>
+        {/* Weekly Attendance Table Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-8 bg-blue-500 rounded-full"></div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Weekly Teacher Attendance
+              </h3>
+            </div>
             
-            {/* Search Bar */}
+            {/* Table Action Buttons */}
+            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Actions:</span>
+              <Button
+                onClick={handleClearAll}
+                size="sm"
+                variant="outline"
+                disabled={!isCurrentDateInWeek || !editableDates.has(currentDate) || saveAttendanceMutation.isPending}
+                className="text-xs hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-700 text-red-600 dark:text-red-400"
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear Today
+              </Button>
+              <Button 
+                onClick={handleSaveAll} 
+                size="sm"
+                disabled={Object.keys(weeklyAttendanceData).length === 0 || saveAttendanceMutation.isPending}
+                className={`text-xs transition-all duration-200 ${
+                  Object.keys(weeklyAttendanceData).length > 0 && !saveAttendanceMutation.isPending
+                    ? "bg-green-600 hover:bg-green-700 text-white shadow-md dark:bg-green-500 dark:hover:bg-green-600"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400"
+                }`}
+              >
+                {saveAttendanceMutation.isPending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="mr-1 h-3 w-3" />
+                )}
+                {saveAttendanceMutation.isPending ? "Saving..." : "Save All"}
+              </Button>
+            </div>
+          </div>
+          
+          {/* Search Bar - Above table on the left */}
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search teachers..."
+                  placeholder="Search teachers by name or subject..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2.5 w-80 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent shadow-sm"
                 />
-                <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              
-              {/* Table Action Buttons */}
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <span className="text-sm font-medium text-gray-700 mr-2">Actions:</span>
-                <Button
-                  onClick={handleClearAll}
-                  size="sm"
-                  variant="outline"
-                  disabled={!isCurrentDateInWeek || !editableDates.has(currentDate) || saveAttendanceMutation.isPending}
-                  className="text-xs"
-                >
-                  <X className="mr-1 h-3 w-3" />
-                  Clear Today
-                </Button>
-                <Button 
-                  onClick={handleSaveAll} 
-                  size="sm"
-                  disabled={Object.keys(weeklyAttendanceData).length === 0 || saveAttendanceMutation.isPending}
-                  className={`text-xs ${
-                    Object.keys(weeklyAttendanceData).length > 0 && !saveAttendanceMutation.isPending
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  }`}
-                >
-                  {saveAttendanceMutation.isPending ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Save className="mr-1 h-3 w-3" />
-                  )}
-                  {saveAttendanceMutation.isPending ? "Saving..." : "Save All"}
-                </Button>
-              </div>
+              {searchTerm && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">
+                  {filteredTeachers.length} of {teachers.length} teachers
+                </span>
+              )}
+            </div>
+            
+            <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l4-4m0 0l4-4m-4 4v12" />
+              </svg>
+              Scroll horizontally to view all days
             </div>
           </div>
           
           {/* Mark All Buttons - Above table rows */}
           {isCurrentDateInWeek && editableDates.has(currentDate) && (
-            <div className="flex items-center gap-2 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <span className="text-sm font-medium text-blue-800 mr-2">
+            <div className="flex items-center gap-2 mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
                 Quick Actions for Today ({format(new Date(), "MMM dd")}):
               </span>
               <Button
                 onClick={() => handleMarkAllForDate("present")}
                 size="sm"
                 variant="outline"
-                className="text-xs text-green-600 border-green-200 hover:bg-green-50"
+                className="text-xs text-green-600 dark:text-green-400 border-green-200 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200"
               >
                 <CheckCircle className="mr-1 h-3 w-3" />
                 Mark All Present
@@ -585,7 +602,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 onClick={() => handleMarkAllForDate("absent")}
                 size="sm"
                 variant="outline"
-                className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                className="text-xs text-red-600 dark:text-red-400 border-red-200 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
               >
                 <XCircle className="mr-1 h-3 w-3" />
                 Mark All Absent
@@ -602,215 +619,235 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
             </div>
           )}
           
-          <div className="rounded-lg border overflow-hidden">
-            {/* Scrollable container for teacher table */}
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0 z-10">
-                  <tr>
-                    <th className="text-left p-4 font-medium text-gray-900 sticky left-0 bg-gray-50 z-20">
-                      Teacher
-                    </th>
-                    {weekDays.map((day) => {
-                      const dateKey = format(day, "yyyy-MM-dd");
-                      const isEditableDay = editableDates.has(dateKey);
-                      const isToday = dateKey === currentDate;
-                      
-                      return (
-                        <th
-                          key={day.toISOString()}
-                          className="text-center p-4 font-medium text-gray-900 min-w-[120px]"
-                        >
-                          <div className="flex flex-col items-center space-y-2">
-                            <div className="text-center">
-                              <span className="text-sm font-medium block">
-                                {format(day, "EEE")}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {format(day, "dd")}
-                              </span>
-                              {isToday && (
-                                <span className="text-xs text-blue-600 font-medium">
-                                  Today
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Edit button only for current day */}
-                            {isToday && canEdit && (
-                              <Button
-                                onClick={() => toggleDateEdit(dateKey)}
-                                size="sm"
-                                variant={isEditableDay ? "default" : "outline"}
-                                disabled={saveAttendanceMutation.isPending}
-                                className={`text-xs h-6 px-2 ${
-                                  isEditableDay 
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white" 
-                                    : "hover:bg-blue-50 hover:border-blue-300"
-                                }`}
-                              >
-                                <Edit3 className="w-3 h-3 mr-1" />
-                                {isEditableDay ? "Editing" : "Edit"}
-                              </Button>
-                            )}
-                          </div>
-                        </th>
-                      );
-                    })}
-                    <th className="text-center p-4 font-medium text-gray-900">
-                      Week %
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredTeachers.map((teacher) => (
-                    <tr
-                      key={teacher.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="p-4 sticky left-0 bg-white z-10">
-                        <div className="flex items-center space-x-3">
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
-                            {teacher.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </div>
-                          <div>
-                            <div className="font-medium text-sm">
-                              {teacher.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {teacher.subjects.join(", ")}
-                            </div>
-                          </div>
+          <div className="rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm overflow-hidden bg-white dark:bg-gray-800">
+            {/* Enhanced scrollable container with better visual cues */}
+            <div className="relative">
+              {/* Scroll indicator overlay */}
+              <div className="absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-30 opacity-0 transition-opacity duration-300" id="scroll-indicator"></div>
+              
+              <div className="overflow-x-auto overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700">
+                <table className="w-full border-collapse">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 sticky top-0 z-10 shadow-sm">
+                    <tr className="border-b border-gray-200 dark:border-gray-600">
+                      <th className="text-left p-4 font-semibold text-gray-900 dark:text-gray-100 sticky left-0 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 z-20 border-r border-gray-200 dark:border-gray-600 min-w-[200px] h-20">
+                        <div className="flex items-center h-full">
+                          <span>Teacher</span>
                         </div>
-                      </td>
+                      </th>
                       {weekDays.map((day) => {
                         const dateKey = format(day, "yyyy-MM-dd");
-                        const status = getWeeklyStatus(teacher.id, dateKey);
-                        const isEditableDay = editableDates.has(dateKey) && dateKey === currentDate;
+                        const isEditableDay = editableDates.has(dateKey);
                         const isToday = dateKey === currentDate;
-
+                        
                         return (
-                          <td
+                          <th
                             key={day.toISOString()}
-                            className={`text-center p-2 ${
-                              isToday ? "bg-blue-50" : ""
+                            className={`text-center p-4 font-semibold text-gray-900 dark:text-gray-100 min-w-[120px] h-20 border-r border-gray-200 dark:border-gray-600 ${
+                              isToday ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-600" : ""
                             }`}
                           >
-                            {isEditableDay ? (
-                              <div className="flex flex-col items-center space-y-2">
-                                <div className="flex space-x-1">
-                                  {statusOptions.map((option) => {
-                                    const isSelected = status === option.value;
-                                    return (
-                                      <button
-                                        key={option.value}
-                                        onClick={() =>
-                                          handleWeeklyStatusChange(
-                                            teacher.id,
-                                            dateKey,
-                                            option.value as AttendanceStatus
-                                          )
-                                        }
-                                        className={`
-                                        w-8 h-8 rounded-full border-2 transition-all duration-200 
-                                        flex items-center justify-center hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-1
-                                        ${
-                                          isSelected
-                                            ? option.value === "present"
-                                              ? "bg-green-500 border-green-500 text-white shadow-lg focus:ring-green-300"
-                                              : "bg-red-500 border-red-500 text-white shadow-lg focus:ring-red-300"
-                                            : option.value === "present"
-                                            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                                            : "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                                        }
-                                      `}
-                                        title={option.label}
-                                      >
-                                        {React.createElement(option.icon, {
-                                          className: `h-3 w-3 ${
-                                            isSelected ? "animate-pulse" : ""
-                                          }`,
-                                        })}
-                                      </button>
-                                    );
-                                  })}
+                            <div className="flex flex-col items-center justify-center h-full space-y-2">
+                              <div className="text-center">
+                                <div className={`text-sm font-semibold ${
+                                  isToday ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-300"
+                                }`}>
+                                  {format(day, "EEE")}
                                 </div>
-                                {status !== "not-marked" && (
-                                  <div
-                                    className={`
-                                  text-xs font-medium px-2 py-1 rounded-full
-                                  ${
-                                    status === "present"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
-                                  }
-                                `}
-                                  >
-                                    {status === "present"
-                                      ? "Present"
-                                      : "Absent"}
-                                  </div>
-                                )}
+                                <div className={`text-xs ${
+                                  isToday ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
+                                }`}>
+                                  {format(day, "MMM dd")}
+                                </div>
                               </div>
-                            ) : (
-                              <div className="flex flex-col items-center space-y-1">
-                                <div
-                                  className={`
-                                w-8 h-8 rounded-full flex items-center justify-center shadow-sm
-                                ${
-                                  status === "present"
-                                    ? "bg-green-500 text-white"
-                                    : status === "absent"
-                                    ? "bg-red-500 text-white"
-                                    : "bg-gray-100 text-gray-400"
-                                }
-                              `}
+                              
+                              {/* Edit button only for current day */}
+                              {isToday && canEdit && (
+                                <Button
+                                  onClick={() => toggleDateEdit(dateKey)}
+                                  size="sm"
+                                  variant={isEditableDay ? "default" : "outline"}
+                                  disabled={saveAttendanceMutation.isPending}
+                                  className={`text-xs h-6 px-2 transition-all duration-200 ${
+                                    isEditableDay 
+                                      ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-md" 
+                                      : "hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-500 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-600"
+                                  }`}
                                 >
-                                  {getWeeklyStatusIcon(status)}
-                                </div>
-                                {status !== "not-marked" && (
-                                  <div
-                                    className={`
-                                  text-xs font-medium px-2 py-1 rounded-full
-                                  ${
-                                    status === "present"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
-                                  }
-                                `}
-                                  >
-                                    {status === "present" ? "P" : "A"}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </td>
+                                  <Edit3 className="w-3 h-3 mr-1" />
+                                  {isEditableDay ? "Editing" : "Edit"}
+                                </Button>
+                              )}
+                            </div>
+                          </th>
                         );
                       })}
-                      <td className="text-center p-4">
-                        <Badge variant="secondary" className="text-xs">
-                          {calculateWeekPercentage(teacher.id)}%
-                        </Badge>
-                      </td>
+                      <th className="text-center p-4 font-semibold text-gray-900 dark:text-gray-100 min-w-[80px] h-20 bg-gray-50 dark:bg-gray-700">
+                        <div className="flex items-center justify-center h-full">
+                          <span>Week %</span>
+                        </div>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+                    {filteredTeachers.map((teacher) => (
+                      <tr
+                        key={teacher.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+                      >
+                        <td className="p-4 sticky left-0 bg-white dark:bg-gray-800 z-10 border-r border-gray-200 dark:border-gray-600 min-w-[200px]">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center text-sm font-semibold text-white shadow-sm">
+                              {teacher.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                                {teacher.name}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {teacher.subjects.join(", ")}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        {weekDays.map((day) => {
+                          const dateKey = format(day, "yyyy-MM-dd");
+                          const status = getWeeklyStatus(teacher.id, dateKey);
+                          const isEditableDay = editableDates.has(dateKey) && dateKey === currentDate;
+                          const isToday = dateKey === currentDate;
+
+                          return (
+                            <td
+                              key={day.toISOString()}
+                              className={`text-center p-3 border-r border-gray-200 dark:border-gray-600 min-w-[120px] ${
+                                isToday ? "bg-blue-50/50 dark:bg-blue-900/20" : "bg-white dark:bg-gray-800"
+                              }`}
+                            >
+                              {isEditableDay ? (
+                                <div className="flex flex-col items-center space-y-2">
+                                  <div className="flex space-x-1">
+                                    {statusOptions.map((option) => {
+                                      const isSelected = status === option.value;
+                                      return (
+                                        <button
+                                          key={option.value}
+                                          onClick={() =>
+                                            handleWeeklyStatusChange(
+                                              teacher.id,
+                                              dateKey,
+                                              option.value as AttendanceStatus
+                                            )
+                                          }
+                                          className={`
+                                          w-9 h-9 rounded-full border-2 transition-all duration-200 
+                                          flex items-center justify-center hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 shadow-sm
+                                          ${
+                                            isSelected
+                                              ? option.value === "present"
+                                                ? "bg-green-500 border-green-500 text-white shadow-md focus:ring-green-300 dark:focus:ring-green-400"
+                                                : "bg-red-500 border-red-500 text-white shadow-md focus:ring-red-300 dark:focus:ring-red-400"
+                                              : option.value === "present"
+                                              ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-800/30 hover:border-green-400 dark:hover:border-green-500"
+                                              : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-600 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800/30 hover:border-red-400 dark:hover:border-red-500"
+                                          }
+                                        `}
+                                          title={option.label}
+                                        >
+                                          {React.createElement(option.icon, {
+                                            className: `h-4 w-4 ${
+                                              isSelected ? "animate-pulse" : ""
+                                            }`,
+                                          })}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {status !== "not-marked" && (
+                                    <div
+                                      className={`
+                                    text-xs font-semibold px-2 py-1 rounded-full shadow-sm
+                                    ${
+                                      status === "present"
+                                        ? "bg-green-100 text-green-800 border border-green-200"
+                                        : "bg-red-100 text-red-800 border border-red-200"
+                                    }
+                                  `}
+                                    >
+                                      {status === "present"
+                                        ? "Present"
+                                        : "Absent"}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center space-y-2">
+                                  <div
+                                    className={`
+                                  w-9 h-9 rounded-full flex items-center justify-center shadow-sm border-2
+                                  ${
+                                    status === "present"
+                                      ? "bg-green-500 text-white border-green-500"
+                                      : status === "absent"
+                                      ? "bg-red-500 text-white border-red-500"
+                                      : "bg-gray-100 dark:bg-gray-600 text-gray-400 dark:text-gray-300 border-gray-200 dark:border-gray-500"
+                                  }
+                                `}
+                                  >
+                                    {getWeeklyStatusIcon(status)}
+                                  </div>
+                                  {status !== "not-marked" && (
+                                    <div
+                                      className={`
+                                    text-xs font-semibold px-2 py-1 rounded-full shadow-sm
+                                    ${
+                                      status === "present"
+                                        ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-600"
+                                        : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-600"
+                                    }
+                                  `}
+                                    >
+                                      {status === "present" ? "P" : "A"}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td className="text-center p-4 bg-gray-50 dark:bg-gray-700 min-w-[80px]">
+                          <Badge variant="secondary" className="text-xs font-semibold px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                            {calculateWeekPercentage(teacher.id)}%
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Weekly Attendance Charts */}
-        <WeeklyAttendanceCharts
-          weeklyData={weeklyChartData}
-          weekRange={`${format(weekStart, "MMM dd")} - ${format(
-            weekEnd,
-            "MMM dd, yyyy"
-          )}`}
-        />
+        {/* Charts Section - Visually Separated */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-8 bg-purple-500 rounded-full"></div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Weekly Attendance Analytics
+            </h3>
+          </div>
+          
+          {/* Weekly Attendance Charts */}
+          <WeeklyAttendanceCharts
+            weeklyData={weeklyChartData}
+            weekRange={`${format(weekStart, "MMM dd")} - ${format(
+              weekEnd,
+              "MMM dd, yyyy"
+            )}`}
+          />
+        </div>
       </CardContent>
     </Card>
   );

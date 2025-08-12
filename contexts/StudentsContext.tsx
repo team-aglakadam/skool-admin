@@ -16,11 +16,14 @@ export type Student = {
   classId: string
   sectionId: string
   status: 'active' | 'inactive'
+  rollNumber?: string
   createdAt: string
   updatedAt: string
 }
 
 export type CreateStudentData = Omit<Student, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+
+export type UpdateStudentData = Partial<Omit<Student, 'id' | 'createdAt' | 'updatedAt'>>
 
 // Dummy student data
 const dummyStudents: Student[] = [
@@ -81,7 +84,7 @@ interface StudentsContextType {
   students: Student[]
   loading: boolean
   addStudent: (studentData: CreateStudentData) => Promise<{ success: boolean; error?: string }>
-  updateStudent: (id: string, updates: Partial<Student>) => Promise<{ success: boolean; error?: string }>
+  updateStudent: (id: string, updates: UpdateStudentData) => Promise<{ success: boolean; error?: string }>
   deleteStudent: (id: string) => Promise<{ success: boolean; error?: string }>
   getStudentById: (id: string) => Student | undefined
   getStudentsByClass: (classId: string) => Student[]
@@ -128,7 +131,7 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateStudent = async (id: string, updates: Partial<Student>): Promise<{ success: boolean; error?: string }> => {
+  const updateStudent = async (id: string, updates: UpdateStudentData): Promise<{ success: boolean; error?: string }> => {
     try {
       setStudents(prev => prev.map(student => 
         student.id === id 
