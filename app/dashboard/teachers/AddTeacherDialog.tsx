@@ -33,13 +33,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTeachers, CreateTeacherData } from "@/contexts/TeachersContext";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher, CreateTeacherData, UpdateTeacherData } from "@/types/teacher";
+import { useTeachers } from "@/hooks/useTeachers";
 
 // Enhanced validation schema
-const addTeacherSchema = z.object({
+const teacherFormSchema = z.object({
   name: z
     .string()
     .min(2, "Name must be at least 2 characters")
@@ -48,23 +48,28 @@ const addTeacherSchema = z.object({
   mobile: z
     .string()
     .regex(/^\d{10}$/, "Mobile number must be exactly 10 digits"),
-  dateOfJoining: z.date().optional(),
-  gender: z.enum(["male", "female", "other", "prefer-not-to-say"]),
-  bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]),
-  dateOfBirth: z.date({
-    // required_error: "Date of birth is required",
-    // invalid_type_error: "Please select a valid date of birth",
-  }),
+  status: z.enum(["active", "inactive"]).default("active"),
+  gender: z
+    .enum(["male", "female", "other", "prefer-not-to-say"])
+    .default("prefer-not-to-say"),
+  bloodGroup: z
+    .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+    .default("A+"),
+  dateOfBirth: z.date().optional(),
+  dateOfJoining: z.date(),
   homeAddress: z.string().optional(),
   educationDetails: z.string().min(1, "Education details are required"),
-  employmentType: z.enum(["full-time", "part-time", "contract"]),
+  employmentType: z
+    .enum(["full-time", "part-time", "contract"])
+    .default("full-time"),
+  subjects: z.string().optional(),
 });
-type AddTeacherFormData = z.infer<typeof addTeacherSchema>;
+type TeacherFormValues = z.infer<typeof teacherFormSchema>;
 
 interface AddTeacherDialogProps {
   children: React.ReactNode;
   mode?: "create" | "edit";
-  teacherData?: Teacher;
+  teacherData?: Teacher | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -86,25 +91,33 @@ export function AddTeacherDialog({
       setLocalOpen(value);
     }
   };
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const {
-    addTeacher,
-    // addTeacherStatus: { isPending, isError, isSuccess, error, reset },
+    createTeacher,
+    createSuccess,
     updateTeacher,
+    updateSuccess,
+    createError,
+    updateError,
+    isCreating,
+    isUpdating,
   } = useTeachers();
+  const isSubmitting = isCreating || isUpdating;
 
-  const form = useForm<AddTeacherFormData>({
-    resolver: zodResolver(addTeacherSchema),
+  const form = useForm<TeacherFormValues>({
+    resolver: zodResolver(teacherFormSchema) as any, // Type assertion to fix resolver type issues
     defaultValues: {
       name: "",
       email: "",
       mobile: "",
+      gender: "prefer-not-to-say",
+      bloodGroup: "A+",
+      dateOfBirth: undefined,
+      dateOfJoining: new Date(),
+      homeAddress: "",
       educationDetails: "",
       employmentType: "full-time",
-      gender: "prefer-not-to-say",
-      bloodGroup: "O+",
-      homeAddress: "",
+      subjects: "",
+      status: "active",
     },
     mode: "onChange",
   });
@@ -128,62 +141,45 @@ export function AddTeacherDialog({
     }
   }, [mode, teacherData, open, form]);
 
-  const onSubmit = async (data: AddTeacherFormData) => {
-    setIsSubmitting(true);
+  useEffect(() => {
+    if (updateSuccess) {
+      toast.success("Teacher updated successfully");
+    }
+    if (createSuccess) {
+      toast.success("Teacher created successfully 🎉");
+    }
+    if (updateError) {
+      toast.error("Failed to update teacher. Please try again.");
+    }
+    if (createError) {
+      toast.error("Failed to create teacher. Please try again.");
+    }
+  }, [updateSuccess, updateError, createSuccess, createError]);
+
+  const onSubmit = async (data: TeacherFormValues) => {
+    const teacherPayload = {
+      ...data,
+      dateOfJoining: data.dateOfJoining.toISOString(),
+      dateOfBirth: data.dateOfBirth?.toISOString() || new Date().toISOString(),
+      subjects: data.subjects
+        ? data.subjects.split(",").map((s) => s.trim())
+        : [],
+      status: data.status || ("active" as const),
+    };
+
     try {
       if (mode === "edit" && teacherData) {
-        // Update existing teacher
-        const updateData = {
-          ...data,
-          dateOfJoining: data.dateOfJoining
-            ? data.dateOfJoining.toISOString().split("T")[0]
-            : undefined,
-          dateOfBirth: data.dateOfBirth.toISOString().split("T")[0],
-          subjects: teacherData.subjects || [],
-        };
-        const result = await updateTeacher(teacherData.id, updateData);
-
-        if (result.success) {
-          toast.success("Teacher updated successfully", {
-            description: result.message
-          });
-          setIsOpen(false);
-          form.reset();
-        } else {
-          toast.error("Failed to update teacher", {
-            description: result.error || "Unknown error"
-          });
-        }
+        updateTeacher({
+          id: teacherData.id,
+          ...teacherPayload,
+        });
       } else {
-        // Create new teacher
-        const newTeacherData: CreateTeacherData = {
-          ...data,
-          dateOfJoining: data.dateOfJoining
-            ? data.dateOfJoining.toISOString().split("T")[0]
-            : undefined,
-          dateOfBirth: data.dateOfBirth.toISOString().split("T")[0],
-          subjects: [],
-        };
-        const result = await addTeacher(newTeacherData);
-
-        if (result.success) {
-          toast.success("Teacher created 🎉", {
-            description: result.data?.message,
-          });
-          setIsOpen(false);
-          form.reset();
-        } else {
-          toast.error("Oops! Teacher creation failed ", {
-            description: `Failed to add teacher: ${
-              result.error || "Unknown error"
-            }. Please try again!`,
-          });
-        }
+        createTeacher(teacherPayload);
       }
+      onOpenChange?.(false);
     } catch (error) {
-      toast.error("An error occurred, please try again.");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error saving teacher:", error);
+      toast.error("Failed to save teacher. Please try again.");
     }
   };
 
@@ -193,16 +189,19 @@ export function AddTeacherDialog({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
-        <div role="dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+      <DialogContent
+        className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto"
+        aria-labelledby="teacher-dialog-title"
+        aria-describedby="teacher-dialog-description"
+      >
         <DialogHeader>
-          <DialogTitle id="dialog-title">
+          <DialogTitle id="teacher-dialog-title">
             {mode === "edit" ? "Edit Teacher" : "Add New Teacher"}
           </DialogTitle>
-          <DialogDescription id="dialog-description">
+          <DialogDescription id="teacher-dialog-description">
             {mode === "edit"
-              ? `Update ${teacherData?.name}'s information. Fields marked with * are required.`
-              : "Please fill the details carefully. Fields marked with * are required."}
+              ? "Update the teacher's details below."
+              : "Fill in the details below to add a new teacher."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -419,9 +418,7 @@ export function AddTeacherDialog({
               <h3 className="text-base font-semibold mb-6 text-primary">
                 Professional Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
@@ -528,7 +525,6 @@ export function AddTeacherDialog({
             </DialogFooter>
           </form>
         </Form>
-        </div>
       </DialogContent>
     </Dialog>
   );

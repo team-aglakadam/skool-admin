@@ -38,7 +38,7 @@ import {
 import { Calendar as CalendarIcon2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher } from "@/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -110,15 +110,20 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const isCurrentWeek = isSameDay(weekStart, currentWeekStart);
   const canEdit = isCurrentWeek;
-  
+
   // Get current date for editing restriction
   const currentDate = format(new Date(), "yyyy-MM-dd");
-  const isCurrentDateInWeek = weekDays.some(day => format(day, "yyyy-MM-dd") === currentDate);
-  
+  const isCurrentDateInWeek = weekDays.some(
+    (day) => format(day, "yyyy-MM-dd") === currentDate
+  );
+
   // Filter teachers based on search term
-  const filteredTeachers = teachers.filter(teacher => 
-    teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.subjects.some(subject => subject.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredTeachers = teachers.filter(
+    (teacher) =>
+      teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teacher.subjects.some((subject) =>
+        subject.toLowerCase().includes(searchTerm.toLowerCase())
+      )
   );
 
   // Fetch attendance data for the week
@@ -322,10 +327,12 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
   const isDateEdited = (date: string): boolean => {
     return teachers.some((teacher) => {
       const key = `${teacher.id}-${date}`;
-      return weeklyAttendanceData[key] || 
+      return (
+        weeklyAttendanceData[key] ||
         existingAttendance?.data.some(
           (record) => record.teacher_id === teacher.id && record.date === date
-        );
+        )
+      );
     });
   };
 
@@ -418,7 +425,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
     }
 
     const newData = { ...weeklyAttendanceData };
-    
+
     // Remove all attendance data for current date only
     filteredTeachers.forEach((teacher) => {
       const key = `${teacher.id}-${currentDate}`;
@@ -493,7 +500,9 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("prev")}
-                disabled={editableDates.size > 0 || saveAttendanceMutation.isPending}
+                disabled={
+                  editableDates.size > 0 || saveAttendanceMutation.isPending
+                }
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -501,7 +510,9 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("next")}
-                disabled={editableDates.size > 0 || saveAttendanceMutation.isPending}
+                disabled={
+                  editableDates.size > 0 || saveAttendanceMutation.isPending
+                }
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -519,26 +530,36 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 Weekly Teacher Attendance
               </h3>
             </div>
-            
+
             {/* Table Action Buttons */}
             <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Actions:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
+                Actions:
+              </span>
               <Button
                 onClick={handleClearAll}
                 size="sm"
                 variant="outline"
-                disabled={!isCurrentDateInWeek || !editableDates.has(currentDate) || saveAttendanceMutation.isPending}
+                disabled={
+                  !isCurrentDateInWeek ||
+                  !editableDates.has(currentDate) ||
+                  saveAttendanceMutation.isPending
+                }
                 className="text-xs hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-700 text-red-600 dark:text-red-400"
               >
                 <X className="mr-1 h-3 w-3" />
                 Clear Today
               </Button>
-              <Button 
-                onClick={handleSaveAll} 
+              <Button
+                onClick={handleSaveAll}
                 size="sm"
-                disabled={Object.keys(weeklyAttendanceData).length === 0 || saveAttendanceMutation.isPending}
+                disabled={
+                  Object.keys(weeklyAttendanceData).length === 0 ||
+                  saveAttendanceMutation.isPending
+                }
                 className={`text-xs transition-all duration-200 ${
-                  Object.keys(weeklyAttendanceData).length > 0 && !saveAttendanceMutation.isPending
+                  Object.keys(weeklyAttendanceData).length > 0 &&
+                  !saveAttendanceMutation.isPending
                     ? "bg-green-600 hover:bg-green-700 text-white shadow-md dark:bg-green-500 dark:hover:bg-green-600"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400"
                 }`}
@@ -552,7 +573,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
               </Button>
             </div>
           </div>
-          
+
           {/* Search Bar - Above table on the left */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -564,8 +585,18 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-80 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent shadow-sm"
                 />
-                <svg className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg
+                  className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </div>
               {searchTerm && (
@@ -574,15 +605,25 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                 </span>
               )}
             </div>
-            
+
             <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l4-4m0 0l4-4m-4 4v12" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16l4-4m0 0l4-4m-4 4v12"
+                />
               </svg>
               Scroll horizontally to view all days
             </div>
           </div>
-          
+
           {/* Mark All Buttons - Above table rows */}
           {isCurrentDateInWeek && editableDates.has(currentDate) && (
             <div className="flex items-center gap-2 mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
@@ -618,13 +659,16 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
               </Button>
             </div>
           )}
-          
+
           <div className="rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm overflow-hidden bg-white dark:bg-gray-800">
             {/* Enhanced scrollable container with better visual cues */}
             <div className="relative">
               {/* Scroll indicator overlay */}
-              <div className="absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-30 opacity-0 transition-opacity duration-300" id="scroll-indicator"></div>
-              
+              <div
+                className="absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white/80 dark:from-gray-800/80 to-transparent pointer-events-none z-30 opacity-0 transition-opacity duration-300"
+                id="scroll-indicator"
+              ></div>
+
               <div className="overflow-x-auto overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700">
                 <table className="w-full border-collapse">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 sticky top-0 z-10 shadow-sm">
@@ -638,38 +682,50 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                         const dateKey = format(day, "yyyy-MM-dd");
                         const isEditableDay = editableDates.has(dateKey);
                         const isToday = dateKey === currentDate;
-                        
+
                         return (
                           <th
                             key={day.toISOString()}
                             className={`text-center p-4 font-semibold text-gray-900 dark:text-gray-100 min-w-[120px] h-20 border-r border-gray-200 dark:border-gray-600 ${
-                              isToday ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-600" : ""
+                              isToday
+                                ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-600"
+                                : ""
                             }`}
                           >
                             <div className="flex flex-col items-center justify-center h-full space-y-2">
                               <div className="text-center">
-                                <div className={`text-sm font-semibold ${
-                                  isToday ? "text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-300"
-                                }`}>
+                                <div
+                                  className={`text-sm font-semibold ${
+                                    isToday
+                                      ? "text-blue-700 dark:text-blue-300"
+                                      : "text-gray-700 dark:text-gray-300"
+                                  }`}
+                                >
                                   {format(day, "EEE")}
                                 </div>
-                                <div className={`text-xs ${
-                                  isToday ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
-                                }`}>
+                                <div
+                                  className={`text-xs ${
+                                    isToday
+                                      ? "text-blue-600 dark:text-blue-400"
+                                      : "text-gray-500 dark:text-gray-400"
+                                  }`}
+                                >
                                   {format(day, "MMM dd")}
                                 </div>
                               </div>
-                              
+
                               {/* Edit button only for current day */}
                               {isToday && canEdit && (
                                 <Button
                                   onClick={() => toggleDateEdit(dateKey)}
                                   size="sm"
-                                  variant={isEditableDay ? "default" : "outline"}
+                                  variant={
+                                    isEditableDay ? "default" : "outline"
+                                  }
                                   disabled={saveAttendanceMutation.isPending}
                                   className={`text-xs h-6 px-2 transition-all duration-200 ${
-                                    isEditableDay 
-                                      ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-md" 
+                                    isEditableDay
+                                      ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-md"
                                       : "hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-500 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-600"
                                   }`}
                                 >
@@ -715,21 +771,26 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                         {weekDays.map((day) => {
                           const dateKey = format(day, "yyyy-MM-dd");
                           const status = getWeeklyStatus(teacher.id, dateKey);
-                          const isEditableDay = editableDates.has(dateKey) && dateKey === currentDate;
+                          const isEditableDay =
+                            editableDates.has(dateKey) &&
+                            dateKey === currentDate;
                           const isToday = dateKey === currentDate;
 
                           return (
                             <td
                               key={day.toISOString()}
                               className={`text-center p-3 border-r border-gray-200 dark:border-gray-600 min-w-[120px] ${
-                                isToday ? "bg-blue-50/50 dark:bg-blue-900/20" : "bg-white dark:bg-gray-800"
+                                isToday
+                                  ? "bg-blue-50/50 dark:bg-blue-900/20"
+                                  : "bg-white dark:bg-gray-800"
                               }`}
                             >
                               {isEditableDay ? (
                                 <div className="flex flex-col items-center space-y-2">
                                   <div className="flex space-x-1">
                                     {statusOptions.map((option) => {
-                                      const isSelected = status === option.value;
+                                      const isSelected =
+                                        status === option.value;
                                       return (
                                         <button
                                           key={option.value}
@@ -817,7 +878,10 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
                           );
                         })}
                         <td className="text-center p-4 bg-gray-50 dark:bg-gray-700 min-w-[80px]">
-                          <Badge variant="secondary" className="text-xs font-semibold px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs font-semibold px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300"
+                          >
                             {calculateWeekPercentage(teacher.id)}%
                           </Badge>
                         </td>
@@ -838,7 +902,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
               Weekly Attendance Analytics
             </h3>
           </div>
-          
+
           {/* Weekly Attendance Charts */}
           <WeeklyAttendanceCharts
             weeklyData={weeklyChartData}

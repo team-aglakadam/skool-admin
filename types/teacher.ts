@@ -15,3 +15,9 @@ export type Teacher = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type CreateTeacherData = Omit<Teacher, 'id' | 'createdAt' | 'updatedAt'> & {
+  // Any additional fields specific to creation
+};
+
+export type UpdateTeacherData = Partial<Omit<Teacher, 'id' | 'createdAt' | 'updatedAt'>>;

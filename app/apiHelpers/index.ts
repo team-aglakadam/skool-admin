@@ -35,7 +35,8 @@ export async function getTeachers(schoolId: string | null) {
     credentials: "include", // This ensures cookies are sent with the request
   });
   if (!res.ok) throw new Error("Failed to fetch teachers");
-  return res.json();
+  const data = await res.json();
+  return data?.teachers;
 }
 
 export async function addTeacher(payload: CreateTeacherData) {
@@ -52,7 +53,7 @@ export async function addTeacher(payload: CreateTeacherData) {
   return res.json();
 }
 
-import { Teacher } from "../types/teacher";
+import { Teacher } from "../../types/teacher";
 
 export type CreateTeacherData = Omit<
   Teacher,

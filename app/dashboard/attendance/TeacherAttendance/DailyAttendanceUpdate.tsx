@@ -28,7 +28,7 @@ import {
 import { format } from "date-fns";
 import { GenericTable } from "@/app/components/table";
 import { ColumnDef } from "@tanstack/react-table";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher } from "@/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,49 +8,65 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ColumnDef } from "@tanstack/react-table";
-import { useTeachers, TeachersProvider } from "@/contexts/TeachersContext";
+import { useTeachers } from "@/hooks/useTeachers";
 import { AddTeacherDialog } from "./AddTeacherDialog";
 import { GenericTable } from "@/app/components/table";
-import { Teacher } from "@/app/types/teacher";
+import { Teacher } from "@/types/teacher";
 import { DeleteUserModal } from "@/app/components/DeleteUserModal";
 import { toast } from "sonner";
+import { useTeachersStore } from "@/store/teachersStore";
 
-function TeachersPageContent() {
-  const { teachers, loading, deleteTeacher } = useTeachers();
-  const [userDeleteModalOpen, setUserDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<Teacher | null>(null);
+interface DeleteUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirmDelete: () => void;
+  isDeleting?: boolean;
+  userName: string;
+  userType?: string;
+}
+
+const TeachersPageContent = () => {
+  const [isMounted, setIsMounted] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
   const [teacherToEdit, setTeacherToEdit] = useState<Teacher | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const openDeleteModal = (teacher: Teacher) => {
-    setUserToDelete(teacher);
-    setUserDeleteModalOpen(true);
+  const { isLoading, deleteTeacher, deleteSuccess } = useTeachers();
+  const { teachers } = useTeachersStore();
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (deleteSuccess) {
+      toast.success("Teacher deleted successfully");
+    }
+  }, [deleteSuccess]);
+
+  const handleOpenDeleteModal = (teacher: Teacher) => {
+    setTeacherToDelete(teacher);
+    setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
+  const handleConfirmDelete = async () => {
+    if (!teacherToDelete) return;
 
-    await handleDeleteTeacher(userToDelete.id);
-    setUserDeleteModalOpen(false);
-    setUserToDelete(null);
-  };
-
-  const handleDeleteTeacher = async (id: string) => {
-    const result = await deleteTeacher(id);
-    if (result.success) {
-      console.log("Teacher deleted successfully");
-      toast.success("User deleted successfully", {});
-    } else {
-      toast.error("Oops! Something went wrong", {
-        description:
-          "Not able to delete the user at the moment. Please try after sometime.",
-      });
-      console.error("Failed to delete teacher:", result.error);
+    try {
+      deleteTeacher(teacherToDelete.id);
+      setIsDeleteModalOpen(false);
+      setTeacherToDelete(null);
+    } catch (error) {
+      toast.error("Failed to delete teacher. Please try again later.");
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return <TeachersLoadingSkeleton />;
+  }
+
+  if (!isMounted) {
+    return null;
   }
 
   return (
@@ -65,30 +81,18 @@ function TeachersPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <AddTeacherDialog
-            mode="create"
-            open={dialogOpen && !teacherToEdit}
+            open={isDialogOpen}
             onOpenChange={(open) => {
-              setDialogOpen(open);
+              setIsDialogOpen(open);
               if (!open) setTeacherToEdit(null);
             }}
+            teacherData={teacherToEdit}
+            mode={teacherToEdit ? "edit" : "create"}
           >
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Teacher
             </Button>
-          </AddTeacherDialog>
-
-          {/* Hidden Edit Dialog - Only shown from table actions */}
-          <AddTeacherDialog
-            mode="edit"
-            teacherData={teacherToEdit || undefined}
-            open={dialogOpen && teacherToEdit !== null}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) setTeacherToEdit(null);
-            }}
-          >
-            <div />
           </AddTeacherDialog>
         </div>
       </div>
@@ -113,7 +117,7 @@ function TeachersPageContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {teachers.filter((t) => t.status === "active").length}
+              {teachers?.filter((t) => t.status === "active").length}
             </div>
           </CardContent>
         </Card>
@@ -136,30 +140,31 @@ function TeachersPageContent() {
         columns={teacherColumns}
         pageSize={10}
         onEdit={(row) => {
-          console.log("row", row);
           setTeacherToEdit(row);
-          setDialogOpen(true);
+          setIsDialogOpen(true);
         }}
         onDelete={(row) => {
-          openDeleteModal(row);
+          handleOpenDeleteModal(row);
         }}
       />
       <DeleteUserModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirmDelete={handleConfirmDelete}
+        userName={teacherToDelete?.name || "this teacher"}
         userType="teacher"
-        userName={userToDelete?.name ?? ""}
-        isOpen={userDeleteModalOpen}
-        onClose={() => setUserDeleteModalOpen(false)}
-        onConfirmDelete={confirmDelete}
       />
     </div>
   );
-}
+};
+
 const teacherColumns: ColumnDef<Teacher>[] = [
   {
     accessorKey: "name",
     header: "Teacher",
     cell: ({ row }) => {
       const teacher = row.original;
+      console.log("teacher", teacher);
       return (
         <div className="flex items-center space-x-3">
           <Avatar className="h-8 w-8">
@@ -250,7 +255,7 @@ function TeachersLoadingSkeleton() {
     "Joined",
     "",
   ];
-  const rows = 3; // Or pageSize if you want to match how many will load
+  const rows = 8; // Or pageSize if you want to match how many will load
 
   return (
     <div className="space-y-6">
@@ -285,26 +290,6 @@ function TeachersLoadingSkeleton() {
   );
 }
 
-function ClientSideTeachers() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Only render the component after it's mounted on the client
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Return null during server-side rendering to avoid hydration mismatch
-  if (!isMounted) {
-    return null;
-  }
-
-  return (
-    <TeachersProvider>
-      <TeachersPageContent />
-    </TeachersProvider>
-  );
-}
-
 export default function TeachersPage() {
-  return <ClientSideTeachers />;
+  return <TeachersPageContent />;
 }

@@ -32,7 +32,7 @@ export function DeleteUserModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle id="delete-dialog-title">
             Delete {userType.charAt(0).toUpperCase() + userType.slice(1)}
           </DialogTitle>
           <DialogDescription>
