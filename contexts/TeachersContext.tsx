@@ -44,6 +44,95 @@ const TeachersContext = createContext<TeachersContextType | undefined>(
   undefined
 );
 
+// Mock teachers data for testing
+const mockTeachers: Teacher[] = [
+  {
+    id: '1',
+    name: 'John Doe',
+    email: 'john.doe@school.com',
+    mobile: '+1234567890',
+    dateOfJoining: '2023-01-15',
+    gender: 'male',
+    bloodGroup: 'A+',
+    dateOfBirth: '1985-05-20',
+    homeAddress: '123 Main St, City, State',
+    educationDetails: 'Masters in Education',
+    status: 'active',
+    subjects: ['Mathematics', 'Physics'],
+    employmentType: 'full-time',
+    createdAt: '2023-01-15T09:00:00Z',
+    updatedAt: '2023-01-15T09:00:00Z'
+  },
+  {
+    id: '2',
+    name: 'Sarah Johnson',
+    email: 'sarah.johnson@school.com',
+    mobile: '+1234567891',
+    dateOfJoining: '2023-02-01',
+    gender: 'female',
+    bloodGroup: 'B+',
+    dateOfBirth: '1990-08-15',
+    homeAddress: '456 Oak Ave, City, State',
+    educationDetails: 'Bachelors in English Literature',
+    status: 'active',
+    subjects: ['English', 'Literature'],
+    employmentType: 'full-time',
+    createdAt: '2023-02-01T09:00:00Z',
+    updatedAt: '2023-02-01T09:00:00Z'
+  },
+  {
+    id: '3',
+    name: 'Michael Chen',
+    email: 'michael.chen@school.com',
+    mobile: '+1234567892',
+    dateOfJoining: '2023-03-10',
+    gender: 'male',
+    bloodGroup: 'O+',
+    dateOfBirth: '1988-12-03',
+    homeAddress: '789 Pine Rd, City, State',
+    educationDetails: 'Masters in Science',
+    status: 'active',
+    subjects: ['Chemistry', 'Biology'],
+    employmentType: 'full-time',
+    createdAt: '2023-03-10T09:00:00Z',
+    updatedAt: '2023-03-10T09:00:00Z'
+  },
+  {
+    id: '4',
+    name: 'Emily Davis',
+    email: 'emily.davis@school.com',
+    mobile: '+1234567893',
+    dateOfJoining: '2023-04-05',
+    gender: 'female',
+    bloodGroup: 'AB+',
+    dateOfBirth: '1992-03-22',
+    homeAddress: '321 Elm St, City, State',
+    educationDetails: 'Bachelors in History',
+    status: 'active',
+    subjects: ['History', 'Social Studies'],
+    employmentType: 'full-time',
+    createdAt: '2023-04-05T09:00:00Z',
+    updatedAt: '2023-04-05T09:00:00Z'
+  },
+  {
+    id: '5',
+    name: 'David Wilson',
+    email: 'david.wilson@school.com',
+    mobile: '+1234567894',
+    dateOfJoining: '2023-05-20',
+    gender: 'male',
+    bloodGroup: 'A-',
+    dateOfBirth: '1987-07-10',
+    homeAddress: '654 Maple Dr, City, State',
+    educationDetails: 'Masters in Computer Science',
+    status: 'active',
+    subjects: ['Computer Science', 'Mathematics'],
+    employmentType: 'full-time',
+    createdAt: '2023-05-20T09:00:00Z',
+    updatedAt: '2023-05-20T09:00:00Z'
+  }
+];
+
 export function TeachersProvider({ children }: { children: ReactNode }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const { schoolId } = useAuth();
@@ -55,13 +144,17 @@ export function TeachersProvider({ children }: { children: ReactNode }) {
       return getTeachers(schoolId);
     },
     enabled: !!schoolId, // Only run the query when schoolId is available
+    retry: false // Don't retry on failure
   });
 
   useEffect(() => {
     if (data?.teachers) {
       setTeachers(data.teachers);
+    } else if (!schoolId) {
+      // Use mock data if no schoolId (for testing)
+      setTeachers(mockTeachers);
     }
-  }, [data]);
+  }, [data, schoolId]);
 
   const queryClient = useQueryClient();
 
