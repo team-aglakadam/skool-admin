@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -30,18 +32,8 @@ import {
   addWeeks,
   subWeeks,
 } from "date-fns";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar as CalendarIcon2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Teacher } from "@/types/teacher";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { WeeklyAttendanceCharts } from "@/app/components/AttendanceCharts";
 import { getAttendanceWeekly, saveAttendance } from "@/app/apiHelpers";
 

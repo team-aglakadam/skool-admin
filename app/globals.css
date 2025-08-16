@@ -112,6 +112,22 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+@keyframes typing {
+  0% {
+    width: 0ch;
+  }
+  50% {
+    width: 3ch;
+  }
+  100% {
+    width: 0ch;
+  }
+}
+
+.animate-typing {
+  animation: typing 1.5s steps(3) infinite;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

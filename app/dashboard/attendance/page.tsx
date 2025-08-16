@@ -13,7 +13,9 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  GraduationCap,
+  UserCheck
 } from 'lucide-react'
 import TeacherAttendance from './TeacherAttendance/page'
 import StudentAttendance from './StudentAttendance/StudentAttendance'
@@ -124,11 +126,27 @@ export default function AttendancePage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="students" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="students">Student Attendance</TabsTrigger>
-          <TabsTrigger value="teachers">Teacher Attendance</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="students" className="space-y-6">
+        <div className="border-b border-gray-200">
+          <TabsList className="inline-flex h-auto items-center justify-start bg-transparent p-0 text-muted-foreground w-full">
+            <TabsTrigger 
+              value="students" 
+              className="relative inline-flex items-center justify-center whitespace-nowrap px-6 py-4 text-sm font-semibold transition-all duration-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 text-gray-600 hover:text-gray-900 data-[state=active]:text-blue-600 bg-transparent border-0 rounded-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent after:transition-all after:duration-200 data-[state=active]:after:bg-blue-600"
+            >
+              <GraduationCap className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Student Attendance</span>
+              <span className="sm:hidden">Students</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="teachers" 
+              className="relative inline-flex items-center justify-center whitespace-nowrap px-6 py-4 text-sm font-semibold transition-all duration-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 text-gray-600 hover:text-gray-900 data-[state=active]:text-blue-600 bg-transparent border-0 rounded-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent after:transition-all after:duration-200 data-[state=active]:after:bg-blue-600"
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Teacher Attendance</span>
+              <span className="sm:hidden">Teachers</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="students" className="space-y-4">
           <StudentAttendance />

@@ -546,24 +546,44 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Attendance Table */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Teacher Details
-          </h3>
-          <GenericTable
-            data={tableData}
-            columns={columns}
-            pageSize={10}
-            showActions={false}
-          />
-        </div>
-        {/* Attendance Charts */}
-        <DailyAttendanceCharts
-          attendanceData={chartData}
-          date={format(selectedDate, "EEEE, MMMM dd, yyyy")}
-        />
+      <CardContent>
+        {/* Attendance Table Container */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">
+              Teacher Details
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-600">
+              Manage individual teacher attendance records
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GenericTable
+              data={tableData}
+              columns={columns}
+              pageSize={10}
+              showActions={false}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Attendance Charts Container */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">
+              Attendance Overview
+            </CardTitle>
+            <CardDescription className="text-sm text-gray-600">
+              Visual summary of attendance data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DailyAttendanceCharts
+              attendanceData={chartData}
+              date={format(selectedDate, "EEEE, MMMM dd, yyyy")}
+            />
+          </CardContent>
+        </Card>
       </CardContent>
     </Card>
   );
