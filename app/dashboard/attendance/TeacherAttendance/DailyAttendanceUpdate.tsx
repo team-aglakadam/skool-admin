@@ -33,6 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DailyAttendanceCharts } from "@/app/components/AttendanceCharts";
+import { getAttendance, saveAttendance } from "@/app/apiHelpers";
 
 type AttendanceStatus = "present" | "absent" | "not-marked";
 
@@ -101,15 +102,7 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
   // Fetch attendance data for the selected date
   const { data: existingAttendance, isLoading } = useQuery({
     queryKey: ["teacher-attendance", format(selectedDate, "yyyy-MM-dd")],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/teacher-attendance?date=${format(selectedDate, "yyyy-MM-dd")}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch attendance data");
-      }
-      return response.json();
-    },
+    queryFn: () => getAttendance(format(selectedDate, "yyyy-MM-dd")),
   });
 
   // Update local state when existing attendance data is fetched
@@ -202,10 +195,8 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
       toast.error("Please select a status before saving");
       return;
     }
-
     try {
       setIsSaving(true);
-
       const attendanceArray = [
         {
           teacherId,
@@ -213,24 +204,11 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
           notes: teacherData.notes || "",
         },
       ];
-
-      const response = await fetch("/api/teacher-attendance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          attendanceData: attendanceArray,
-          date: format(selectedDate, "yyyy-MM-dd"),
-          marked_by_admin_id: user?.id,
-        }),
+      await saveAttendance({
+        attendanceData: attendanceArray,
+        date: format(selectedDate, "yyyy-MM-dd"),
+        marked_by_admin_id: user?.id,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to save attendance");
-      }
-
       toast.success("Attendance saved successfully!");
 
       // Remove from editing rows
@@ -298,7 +276,6 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
 
     try {
       setIsSaving(true);
-
       const attendanceArray = Object.entries(attendanceData).map(
         ([teacherId, data]) => ({
           teacherId,
@@ -306,24 +283,11 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
           notes: data.notes || "",
         })
       );
-
-      const response = await fetch("/api/teacher-attendance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          attendanceData: attendanceArray,
-          date: format(selectedDate, "yyyy-MM-dd"),
-          marked_by_admin_id: user?.id,
-        }),
+      await saveAttendance({
+        attendanceData: attendanceArray,
+        date: format(selectedDate, "yyyy-MM-dd"),
+        marked_by_admin_id: user?.id,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to save attendance");
-      }
-
       toast.success("Bulk attendance saved successfully!");
       setHasBulkChanges(false);
       // Return all rows to non-editable state after saving

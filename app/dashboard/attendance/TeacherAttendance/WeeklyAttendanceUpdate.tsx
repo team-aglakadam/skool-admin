@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { WeeklyAttendanceCharts } from "@/app/components/AttendanceCharts";
+import { getAttendanceWeekly, saveAttendance } from "@/app/apiHelpers";
 
 type AttendanceStatus = "present" | "absent" | "leave";
 
@@ -131,21 +132,10 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
     queryKey: ["teacher-attendance-week", format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
       try {
-        const response = await fetch(
-          `/api/teacher-attendance?startDate=${format(
-            weekStart,
-            "yyyy-MM-dd"
-          )}&endDate=${format(weekEnd, "yyyy-MM-dd")}`
+        return await getAttendanceWeekly(
+          format(weekStart, "yyyy-MM-dd"),
+          format(weekEnd, "yyyy-MM-dd")
         );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || "Failed to fetch attendance data"
-          );
-        }
-
-        return response.json();
       } catch (err) {
         console.error("Error fetching attendance:", err);
         throw err;
@@ -162,18 +152,7 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
       marked_by_admin_id: string;
     }) => {
       try {
-        const response = await fetch("/api/teacher-attendance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || "Failed to save attendance");
-        }
-
-        return response.json();
+        return await saveAttendance(data);
       } catch (err) {
         console.error("Error saving attendance:", err);
         throw err;

@@ -1,3 +1,13 @@
+import { Teacher } from "../../types/teacher";
+
+export type CreateTeacherData = Omit<
+  Teacher,
+  "id" | "status" | "createdAt" | "updatedAt"
+>;
+export type UpdateTeacherData = Partial<
+  Omit<Teacher, "id" | "createdAt" | "updatedAt" | "status">
+>;
+
 export async function signInUser(payload: { email: string; password: string }) {
   const res = await fetch("/api/auth/sign-in", {
     method: "POST",
@@ -53,16 +63,6 @@ export async function addTeacher(payload: CreateTeacherData) {
   return res.json();
 }
 
-import { Teacher } from "../../types/teacher";
-
-export type CreateTeacherData = Omit<
-  Teacher,
-  "id" | "status" | "createdAt" | "updatedAt"
->;
-export type UpdateTeacherData = Partial<
-  Omit<Teacher, "id" | "createdAt" | "updatedAt" | "status">
->;
-
 export async function updateTeacher(id: string, updates: UpdateTeacherData) {
   const response = await fetch("/api/teachers", {
     method: "PATCH",
@@ -94,4 +94,47 @@ export async function deleteTeacher(id: string) {
     throw new Error(data.error || "Failed to delete teacher");
   }
   return data;
+}
+
+export async function getAttendance(selectedDate: string) {
+  const response = await fetch(`/api/teacher-attendance?date=${selectedDate}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch attendance data");
+  }
+  return response.json();
+}
+
+export async function getAttendanceWeekly(startDate: string, endDate: string) {
+  const response = await fetch(
+    `/api/teacher-attendance?startDate=${startDate}&endDate=${endDate}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch attendance data");
+  }
+  return response.json();
+}
+
+export async function saveAttendance(payload: object) {
+  const response = await fetch("/api/teacher-attendance", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to save attendance");
+  }
+  return response.json();
 }
