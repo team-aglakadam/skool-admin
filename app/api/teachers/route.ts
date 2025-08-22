@@ -176,7 +176,6 @@ export async function POST(req: Request) {
       await serviceClient.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({ error: userError.message }, { status: 500 });
     }
-
     // 3. Create teacher record linked to the user
     const { data: teacherData, error: teacherError } = await supabase
       .from("teachers")
@@ -225,7 +224,6 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const payload = await req.json();
   const { id, ...updates } = payload;
-
   if (!id) {
     return NextResponse.json(
       { error: "Teacher id is required" },
@@ -391,7 +389,6 @@ export async function DELETE(req: Request) {
     // 4. Delete auth user using service client (Supabase Admin)
     try {
       const serviceClient = await createServiceClient();
-
       // Delete the auth user using auth_id if available
       if (authId) {
         const { error: authDeleteError } =

@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 import {
   Plus,
   Search,
@@ -8,44 +8,58 @@ import {
   GraduationCap,
   User,
   BookOpen,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useClasses, Class, ClassSection } from '@/contexts/ClassesContext'
-import { useTeachers } from '@/contexts/TeachersContext'
-import { useSubjects } from '@/contexts/SubjectsContext'
-import { useSubjectAssignments } from '@/contexts/SubjectAssignmentsContext'
-import { 
-  CreateClassDialog, 
-  ClassCardsGrid, 
-  EmptyState 
-} from './components'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useClasses, Class, ClassSection } from "@/contexts/ClassesContext";
+import { useTeachers } from "@/contexts/TeachersContext";
+import { useSubjects } from "@/contexts/SubjectsContext";
+import { useSubjectAssignments } from "@/contexts/SubjectAssignmentsContext";
+import { CreateClassDialog, ClassCardsGrid, EmptyState } from "./components";
 
 export default function ClassesPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const { classes, loading, searchClasses, getTotalStudents, getTotalSections, deleteClass } = useClasses()
-  const { teachers } = useTeachers()
-  const { subjects } = useSubjects()
-  const { subjectAssignments, deleteSubjectAssignment } = useSubjectAssignments()
+  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    classes,
+    loading,
+    searchClasses,
+    getTotalStudents,
+    getTotalSections,
+    deleteClass,
+  } = useClasses();
+  const { teachers } = useTeachers();
+  const { subjects } = useSubjects();
+  const { subjectAssignments, deleteSubjectAssignment } =
+    useSubjectAssignments();
 
-  const filteredClasses = searchClasses(searchTerm)
+  const filteredClasses = searchClasses(searchTerm);
 
   const handleDeleteClass = async (classId: string, className: string) => {
-    if (confirm(`Are you sure you want to delete "${className}"? This action cannot be undone.`)) {
-      const result = await deleteClass(classId)
+    if (
+      confirm(
+        `Are you sure you want to delete "${className}"? This action cannot be undone.`
+      )
+    ) {
+      const result = await deleteClass(classId);
       if (result.success) {
         // State will be updated automatically by the context
-        console.log(`Class "${className}" deleted successfully`)
+        console.log(`Class "${className}" deleted successfully`);
       } else {
-        console.error('Failed to delete class:', result.error)
+        console.error("Failed to delete class:", result.error);
       }
     }
-  }
+  };
 
   if (loading) {
-    return <ClassesLoadingSkeleton />
+    return <ClassesLoadingSkeleton />;
   }
 
   return (
@@ -59,9 +73,11 @@ export default function ClassesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CreateClassDialog onSuccess={() => {
-            // Refresh data if needed
-          }}>
+          <CreateClassDialog
+            onSuccess={() => {
+              // Refresh data if needed
+            }}
+          >
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Create Class
@@ -83,7 +99,9 @@ export default function ClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sections</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Sections
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -92,7 +110,9 @@ export default function ClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Students
+            </CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -101,11 +121,15 @@ export default function ClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subject Assignments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Subject Assignments
+            </CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{subjectAssignments.length}</div>
+            <div className="text-2xl font-bold">
+              {subjectAssignments.length}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -131,14 +155,10 @@ export default function ClassesPage() {
       />
 
       {/* Empty State */}
-      {filteredClasses.length === 0 && (
-        <EmptyState searchTerm={searchTerm} />
-      )}
+      {filteredClasses.length === 0 && <EmptyState searchTerm={searchTerm} />}
     </div>
-  )
+  );
 }
-
-
 
 function ClassesLoadingSkeleton() {
   return (
@@ -196,5 +216,5 @@ function ClassesLoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
-} 
+  );
+}

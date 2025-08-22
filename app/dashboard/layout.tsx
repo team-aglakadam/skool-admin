@@ -97,7 +97,11 @@ const navigation: Record<string, NavigationItem[]> = {
       icon: UserCheck,
       submenu: [
         { name: "All Students", href: "/dashboard/students", icon: Users },
-        { name: "Attendance", href: "/dashboard/attendance/students", icon: ClipboardCheck },
+        {
+          name: "Attendance",
+          href: "/dashboard/attendance/students",
+          icon: ClipboardCheck,
+        },
       ],
     },
     {
