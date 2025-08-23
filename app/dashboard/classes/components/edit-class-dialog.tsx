@@ -11,15 +11,17 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog'
-import CreateClassForm from './create-class-form'
+import { toast } from 'sonner'
 import { Class, useClasses } from '@/contexts/ClassesContext'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useTeachers } from '@/contexts/TeachersContext'
+import { Teacher } from '@/app/types/teacher'
+import CreateClassForm from './create-class-form'
 
 // Enhanced schema with teacher assignments
-const createClassFormSchema = z.object({
+const editClassFormSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   sections: z.array(z.object({
     name: z.string().min(1, 'Section name is required'),
@@ -27,7 +29,7 @@ const createClassFormSchema = z.object({
   })).min(1, 'At least one section is required'),
 })
 
-type CreateClassFormValues = z.infer<typeof createClassFormSchema>
+type EditClassFormValues = z.infer<typeof editClassFormSchema>
 
 // Available section names (A-Z)
 const SECTION_NAMES = Array.from({ length: 26 }, (_, i) =>
@@ -43,11 +45,13 @@ interface EditClassDialogProps {
 export function EditClassDialog({ classData, onSuccess, children }: EditClassDialogProps) {
     const [open, setOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [success, setSuccess] = useState<string | null>(null)
     const { updateClass } = useClasses()
     const { teachers } = useTeachers()
 
-    const form = useForm<CreateClassFormValues>({
-        resolver: zodResolver(createClassFormSchema),
+    const form = useForm<EditClassFormValues>({
+        resolver: zodResolver(editClassFormSchema),
         defaultValues: {
             name: classData.name,
             sections: classData.sections.map(section => ({
@@ -78,12 +82,36 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
         }
     }, [classData, form])
 
-    const handleSubmit = async (data: CreateClassFormValues) => {
+    const handleSubmit = async (data: EditClassFormValues) => {
         try {
+            setError(null)
+            setSuccess(null)
             setIsSubmitting(true)
-            await updateClass(classData.id, data)
-            setOpen(false)
-            onSuccess?.()
+            
+            console.log('Submitting update with data:', data);
+            const result = await updateClass(classData.id, data)
+            console.log('Update result:', result);
+            
+            if (result.success) {
+                toast.success(result.message || `Class ${data.name} updated successfully`);
+                setSuccess(result.message || `Class ${data.name} updated successfully`);
+                setTimeout(() => {
+                    setOpen(false)
+                    if (onSuccess) {
+                        onSuccess()
+                    } else {
+                        // Force page refresh if no success callback
+                        window.location.reload()
+                    }
+                }, 1500)
+            } else {
+                toast.error(result.error || 'Failed to update class');
+                setError(result.error || 'Failed to update class')
+            }
+        } catch (err) {
+            console.error('Error updating class:', err)
+            toast.error('An unexpected error occurred');
+            setError('An unexpected error occurred')
         } finally {
             setIsSubmitting(false)
         }
@@ -91,6 +119,8 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
 
     const handleCancel = () => {
         setOpen(false)
+        setError(null)
+        setSuccess(null)
         // Reset to original data
         form.reset({
             name: classData.name,
@@ -153,6 +183,16 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
                     <DialogDescription>
                         Update class details, sections, and teacher assignments
                     </DialogDescription>
+                    {error && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+                            {error}
+                        </div>
+                    )}
+                    {success && (
+                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-green-600 text-sm">
+                            {success}
+                        </div>
+                    )}
                 </DialogHeader>
                 <div className="flex-1 overflow-y-auto py-4">
                     <CreateClassForm
