@@ -8,6 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { Teacher } from "@/app/types/teacher";
+import { useUserStore } from "@/store/userStore";
+import { useAuth } from "./AuthContext";
 
 export type ClassSection = {
   id: string;
@@ -37,91 +39,6 @@ export type CreateClassData = {
   }>;
 };
 
-// Dummy class data
-const dummyClasses: Class[] = [
-  {
-    id: "1",
-    name: "Class 1",
-    sections: [
-      {
-        id: "1a",
-        name: "A",
-        classId: "1",
-        classTeacherId: "1", // John Doe
-        studentCount: 28,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-      {
-        id: "1b",
-        name: "B",
-        classId: "1",
-        classTeacherId: "2", // Sarah Johnson
-        studentCount: 25,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-      {
-        id: "1c",
-        name: "C",
-        classId: "1",
-        classTeacherId: null, // Unassigned
-        studentCount: 30,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-    ],
-    totalStudents: 83,
-    createdAt: "2024-01-15T09:00:00Z",
-    updatedAt: "2024-01-15T09:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Class 2",
-    sections: [
-      {
-        id: "2a",
-        name: "A",
-        classId: "2",
-        classTeacherId: "3", // Michael Chen
-        studentCount: 26,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-      {
-        id: "2b",
-        name: "B",
-        classId: "2",
-        classTeacherId: "4", // Emily Davis
-        studentCount: 24,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-    ],
-    totalStudents: 50,
-    createdAt: "2024-01-15T09:00:00Z",
-    updatedAt: "2024-01-15T09:00:00Z",
-  },
-  {
-    id: "3",
-    name: "Class 3",
-    sections: [
-      {
-        id: "3a",
-        name: "A",
-        classId: "3",
-        classTeacherId: "5", // David Wilson
-        studentCount: 22,
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-15T09:00:00Z",
-      },
-    ],
-    totalStudents: 22,
-    createdAt: "2024-01-15T09:00:00Z",
-    updatedAt: "2024-01-15T09:00:00Z",
-  },
-];
-
 interface ClassesContextType {
   classes: Class[];
   loading: boolean;
@@ -133,8 +50,8 @@ interface ClassesContextType {
   updateClass: (
     id: string,
     updates: CreateClassData
-  ) => Promise<{ success: boolean; error?: string }>;
-  deleteClass: (id: string) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; message?: string }>;
+  deleteClass: (id: string, className: string) => Promise<{ success: boolean; error?: string }>;
 
   // Section operations
   assignClassTeacher: (
@@ -165,101 +82,264 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 export function ClassesProvider({ children }: { children: ReactNode }) {
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
+  const { schoolId } = useAuth();
 
   useEffect(() => {
-    // Simulate API call
     const loadClasses = async () => {
       setLoading(true);
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setClasses(dummyClasses);
-      setLoading(false);
+      
+      try {
+        if (!schoolId) {
+          console.log('No schoolId available, using dummy data');
+          return;
+        }
+        
+        // Fetch classes from API
+        const response = await fetch(`/api/classes?schoolId=${schoolId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch classes: ${response.statusText}`);
+        }
+        
+        // Get raw class data from DB
+        const classesData = await response.json();
+        console.log('Classes data from DB:', classesData);
+        
+        // Process and group classes by name
+        const groupedClasses: Record<string, any[]> = {};
+        
+        // Group by class name
+        classesData.forEach((classItem: any) => {
+          const className = classItem.name;
+          if (!groupedClasses[className]) {
+            groupedClasses[className] = [];
+          }
+          groupedClasses[className].push(classItem);
+        });
+        
+        // Convert to frontend model
+        const processedClasses: Class[] = Object.entries(groupedClasses)
+          .map(([className, sections]) => {
+            const classId = `${className}-${Date.now()}`; // Generate a unique ID for the class group
+            
+            return {
+              id: classId,
+              name: className,
+              sections: sections.map(section => ({
+                id: section.id,
+                name: section.section,
+                classId: classId,
+                classTeacherId: section.class_teacher_id,
+                studentCount: 0, // This would need to be calculated from a separate API call
+                createdAt: section.created_at,
+                updatedAt: section.created_at
+              })),
+              totalStudents: 0, // This would be calculated from actual data
+              createdAt: sections[0].created_at,
+              updatedAt: sections[0].created_at
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name)); // Sort by class name
+        
+        setClasses(processedClasses);
+      } catch (error) {
+        console.error('Error loading classes:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadClasses();
-  }, []);
+  }, [schoolId]);
 
   const createClass = async (
     classData: CreateClassData
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const classId = Date.now().toString();
+      // Get schoolId from auth context
+      const currentSchoolId = schoolId;
+
+      if (!currentSchoolId) {
+        throw new Error("School ID is required to create a class");
+      }
+
+      // Prepare data for API request
+      const apiPayload = {
+        name: classData.name,
+        sections: classData.sections,
+        school_id: currentSchoolId
+      };
+
+      // Call the API to create class sections in the database
+      const response = await fetch('/api/classes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create class');
+      }
+
+      const { data } = await response.json();
+      
+      // Map the returned data to our frontend model
+      const classId = Date.now().toString(); // Use a temp ID if API doesn't return proper ID
       const newClass: Class = {
         id: classId,
         name: classData.name,
-        sections: classData.sections.map((section, index) => ({
-          id: `${classId}-${index}`,
-          name: section.name,
-          classId: classId,
-          classTeacherId: section.teacherId || null,
+        sections: data.map((classSection: any) => ({
+          id: classSection.id || `${classId}-${classSection.section}`,
+          name: classSection.section,
+          classId: classSection.id,
+          classTeacherId: classSection.class_teacher_id,
           studentCount: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })),
+          createdAt: classSection.created_at,
+          updatedAt: classSection.created_at,
+        })) || [],
         totalStudents: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
+      // Update local state with the new class
       setClasses((prev) => [newClass, ...prev]);
       return { success: true };
-    } catch (error) {
-      return { success: false, error: "Failed to create class" };
+    } catch (error: any) {
+      console.error("Error creating class:", error);
+      return { success: false, error: error?.message || "Failed to create class" };
     }
   };
 
   const updateClass = async (
     id: string,
     updates: CreateClassData
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
     try {
-      setClasses((prev) =>
-        prev.map((cls) => {
-          if (cls.id === id) {
-            // Update sections with new data
-            const updatedSections = updates.sections.map(
-              (sectionData, index) => {
-                const existingSection = cls.sections[index];
-                return {
-                  ...existingSection,
-                  name: sectionData.name,
-                  classTeacherId: sectionData.teacherId || null,
-                  updatedAt: new Date().toISOString(),
-                };
-              }
-            );
+      if (!schoolId) {
+        throw new Error('School ID is required to update a class');
+      }
+      
+      // Find the class to update
+      const classToUpdate = classes.find(cls => cls.id === id);
+      if (!classToUpdate) {
+        throw new Error('Class not found');
+      }
 
-            // Calculate new total students
-            const newTotalStudents = updatedSections.reduce(
-              (total, section) => total + section.studentCount,
-              0
-            );
+      // For now, we only handle updating the first section of the class
+      // In a full implementation, this would need to update multiple sections
+      if (classToUpdate.sections.length > 0 && updates.sections.length > 0) {
+        const firstSection = classToUpdate.sections[0];
+        const firstSectionUpdate = updates.sections[0];
+        
+        // Prepare payload for API
+        const payload = {
+          id: firstSection.id,
+          name: updates.name,
+          section: firstSectionUpdate.name,
+          class_teacher_id: firstSectionUpdate.teacherId || null,
+          school_id: schoolId
+        };
+        
+        // Call API to update class in database
+        const response = await fetch('/api/classes', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update class');
+        }
 
-            return {
-              ...cls,
-              name: updates.name,
-              sections: updatedSections,
-              totalStudents: newTotalStudents,
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          return cls;
-        })
-      );
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: "Failed to update class" };
+        // Get the updated class data from response
+        const updatedData = await response.json();
+        console.log('API response data:', updatedData);
+        
+        // Update local state
+        setClasses((prev) =>
+          prev.map((cls) => {
+            if (cls.id === id) {
+              // Update sections with new data
+              const updatedSections = cls.sections.map((section, index) => {
+                // Only update the first section for now
+                if (index === 0) {
+                  return {
+                    ...section,
+                    name: firstSectionUpdate.name,
+                    classTeacherId: firstSectionUpdate.teacherId || null,
+                    updatedAt: new Date().toISOString(),
+                  };
+                }
+                return section;
+              });
+
+              // Calculate new total students
+              const newTotalStudents = updatedSections.reduce(
+                (total, section) => total + section.studentCount,
+                0
+              );
+
+              return {
+                ...cls,
+                name: updates.name,
+                sections: updatedSections,
+                totalStudents: newTotalStudents,
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return cls;
+          })
+        );
+        
+        return { 
+          success: true,
+          message: updatedData.message || 'Class updated successfully' 
+        };
+      } else {
+        throw new Error('Invalid class sections configuration');
+      }
+    } catch (error: any) {
+      console.error('Error updating class:', error);
+      return { success: false, error: error?.message || "Failed to update class" };
     }
   };
 
   const deleteClass = async (
-    id: string
+    id: string,
+    className: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      if (!schoolId) {
+        throw new Error('School ID is required to delete a class');
+      }
+      
+      // Call API to delete class from database
+      const response = await fetch(
+        `/api/classes?className=${encodeURIComponent(className)}&schoolId=${schoolId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete class');
+      }
+      
+      // Update local state by removing the class with this ID
       setClasses((prev) => prev.filter((cls) => cls.id !== id));
+      
       return { success: true };
-    } catch (error) {
-      return { success: false, error: "Failed to delete class" };
+    } catch (error: any) {
+      console.error('Error deleting class:', error);
+      return { success: false, error: error?.message || "Failed to delete class" };
     }
   };
 
@@ -338,7 +418,7 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
   const getClassById = (id: string): Class | undefined => {
     // For testing, return mock data if classes array is empty
     if (classes.length === 0) {
-      return dummyClasses.find((cls) => cls.id === id);
+      return undefined;
     }
     return classes.find((cls) => cls.id === id);
   };
@@ -350,7 +430,7 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
     // For testing, use mock data if classes array is empty
     const cls =
       classes.length === 0
-        ? dummyClasses.find((c) => c.id === classId)
+        ? undefined
         : classes.find((c) => c.id === classId);
     return cls?.sections.find((s) => s.id === sectionId);
   };
