@@ -6,21 +6,23 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const schoolId = searchParams.get("schoolId");
 
-  console.log("schoolId in last", schoolId);
-
   const supabase = await createClient();
-  
+
   // Check if the user is authenticated
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
-  
+  const {
+    data: { session },
+    error: authError,
+  } = await supabase.auth.getSession();
+
   if (authError || !session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   // Use the authenticated client to fetch data with a join between teachers and users
   const { data, error } = await supabase
-    .from('teachers')
-    .select(`
+    .from("teachers")
+    .select(
+      `
       id,
       user_id,
       school_id,
@@ -41,11 +43,13 @@ export async function GET(req: Request) {
         date_of_birth,
         blood_group,
         gender,
+        updated_at,
         role
       )
-    `)
+    `
+    )
     .eq("school_id", schoolId);
-      console.log("data", data);
+
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -59,31 +63,36 @@ export async function GET(req: Request) {
     date_of_birth: string;
     blood_group: string;
     gender: string;
+    updated_at: string;
     role: string;
   };
 
-  const formattedTeachers = data.map(teacher => {
+  const formattedTeachers = data.map((teacher) => {
     // Each teacher has a single user record
-    const user = (teacher.users as unknown) as UserRecord;
-    
+    const user = teacher.users as unknown as UserRecord;
+
     return {
       id: teacher.id,
-      name: user?.full_name || '',
-      email: user?.email || '',
-      mobile: user?.phone || '',
+      name: user?.full_name || "",
+      email: user?.email || "",
+      mobile: user?.phone || "",
       dateOfJoining: teacher.date_of_joining || null,
       // Default values for fields not directly in the schema
-      gender: user?.gender || 'prefer-not-to-say',
-      bloodGroup: user?.blood_group || 'O+',
-      dateOfBirth: user?.date_of_birth || '',
+      gender: user?.gender || "prefer-not-to-say",
+      updatedAt: user?.updated_at || "",
+      bloodGroup: user?.blood_group || "O+",
+      dateOfBirth: user?.date_of_birth || "",
       homeAddress: user?.address || null,
-      educationDetails: teacher.education_details || '',
-      status: teacher.is_active ? 'active' : 'inactive',
+      educationDetails: teacher.education_details || "",
+      status: teacher.is_active ? "active" : "inactive",
       subjects: [], // You'll need to implement a separate query for subjects if needed
-      employmentType: teacher.designation === 'full-time' ? 'full-time' : 
-                      teacher.designation === 'part-time' ? 'part-time' : 'contract',
-      createdAt: teacher.created_at || '',
-      updatedAt: teacher.created_at || '', // No updated_at in schema, using created_at
+      employmentType:
+        teacher.designation === "full-time"
+          ? "full-time"
+          : teacher.designation === "part-time"
+          ? "part-time"
+          : "contract",
+      createdAt: teacher.created_at || "",
     };
   });
 
@@ -93,44 +102,54 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const payload = await req.json();
   const supabase = await createClient();
-  
+
   // Check authentication
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  const {
+    data: { session },
+    error: authError,
+  } = await supabase.auth.getSession();
   if (authError || !session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   // Get school_id from authenticated user
   const schoolId = session.user.user_metadata?.school_id;
   if (!schoolId) {
-    return NextResponse.json({ error: "School ID not found in user metadata" }, { status: 400 });
+    return NextResponse.json(
+      { error: "School ID not found in user metadata" },
+      { status: 400 }
+    );
   }
 
   try {
     // 1. Create Supabase auth user first - this is mandatory
     // Using service role client for admin operations
     const serviceClient = await createServiceClient();
-    const { data: authData, error: authCreateError } = await serviceClient.auth.admin.createUser({
-      email: payload.email,
-      password: "admin123", // Fixed password for development
-      email_confirm: true, // Skip email confirmation
-      user_metadata: {
-        full_name: payload.name,
-        school_id: schoolId,
-        role: ["teacher"]
-      },
-      app_metadata: {
-        full_name: payload.name,
-        roles: ["teacher"],
-        school_id: schoolId,
-      }
-    });
-    
+    const { data: authData, error: authCreateError } =
+      await serviceClient.auth.admin.createUser({
+        email: payload.email,
+        password: "admin123", // Fixed password for development
+        email_confirm: true, // Skip email confirmation
+        user_metadata: {
+          full_name: payload.name,
+          school_id: schoolId,
+          role: ["teacher"],
+        },
+        app_metadata: {
+          full_name: payload.name,
+          roles: ["teacher"],
+          school_id: schoolId,
+        },
+      });
+
     if (authCreateError) {
       console.error("Error creating auth user:", authCreateError);
-      return NextResponse.json({ 
-        error: `Failed to create authentication account: ${authCreateError.message}` 
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: `Failed to create authentication account: ${authCreateError.message}`,
+        },
+        { status: 500 }
+      );
     }
 
     // 2. Create user record with auth_id
@@ -146,18 +165,17 @@ export async function POST(req: Request) {
         date_of_birth: payload.dateOfBirth,
         blood_group: payload.bloodGroup,
         gender: payload.gender,
-        auth_id: authData.user.id // Store the auth user ID
+        auth_id: authData.user.id, // Store the auth user ID
       })
       .select()
       .single();
-      
+
     if (userError) {
       console.error("Error creating user:", userError);
       // Attempt to rollback by deleting the auth user we just created
       await serviceClient.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({ error: userError.message }, { status: 500 });
     }
-    
     // 3. Create teacher record linked to the user
     const { data: teacherData, error: teacherError } = await supabase
       .from("teachers")
@@ -168,27 +186,32 @@ export async function POST(req: Request) {
         designation: payload.employmentType,
         date_of_joining: payload.dateOfJoining,
         education_details: payload.educationDetails,
-        is_active: true
+        is_active: true,
       })
       .select()
       .single();
-      
+
     if (teacherError) {
       console.error("Error creating teacher:", teacherError);
       // Attempt to rollback by deleting the user we just created
       await supabase.from("users").delete().eq("id", userData.id);
       // Attempt to rollback by deleting the auth user we just created
       await serviceClient.auth.admin.deleteUser(authData.user.id);
-      return NextResponse.json({ error: teacherError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: teacherError.message },
+        { status: 500 }
+      );
     }
-    
+
     // 4. Return the combined data
-    return NextResponse.json({
-      user: userData,
-      teacher: teacherData,
-      authCreated: !authCreateError
-    }, { status: 201 });
-    
+    return NextResponse.json(
+      {
+        user: userData,
+        teacher: teacherData,
+        authCreated: !authCreateError,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error in teacher creation process:", error);
     return NextResponse.json(
@@ -201,7 +224,6 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const payload = await req.json();
   const { id, ...updates } = payload;
-  
   if (!id) {
     return NextResponse.json(
       { error: "Teacher id is required" },
@@ -210,16 +232,34 @@ export async function PATCH(req: Request) {
   }
 
   const supabase = await createClient();
-  
+
   // Check authentication
-  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  const {
+    data: { session },
+    error: authError,
+  } = await supabase.auth.getSession();
   if (authError || !session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // First update the user record
-    const { error: userError } = await supabase
+    // First update the user record with updated_at timestamp
+    const userId = (
+      await supabase.from("teachers").select("user_id").eq("id", id).single()
+    ).data?.user_id;
+
+    console.log("Updating user with ID:", userId);
+    console.log("Update data:", {
+      full_name: updates.name,
+      phone: updates.mobile,
+      address: updates.homeAddress,
+      date_of_birth: updates.dateOfBirth,
+      blood_group: updates.bloodGroup,
+      gender: updates.gender,
+      updated_at: new Date().toISOString(),
+    });
+
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .update({
         full_name: updates.name,
@@ -227,13 +267,12 @@ export async function PATCH(req: Request) {
         address: updates.homeAddress,
         date_of_birth: updates.dateOfBirth,
         blood_group: updates.bloodGroup,
-        gender: updates.gender
+        gender: updates.gender,
+        updated_at: new Date().toISOString(),
       })
-      .eq("id", (await supabase
-        .from("teachers")
-        .select("user_id")
-        .eq("id", id)
-        .single()).data?.user_id);
+      .eq("id", userId);
+
+    console.log("Update result:", { userData, userError });
 
     if (userError) {
       console.error("Error updating user:", userError);
@@ -246,7 +285,7 @@ export async function PATCH(req: Request) {
       .update({
         designation: updates.employmentType,
         date_of_joining: updates.dateOfJoining,
-        education_details: updates.educationDetails
+        education_details: updates.educationDetails,
       })
       .eq("id", id)
       .select()
@@ -254,14 +293,19 @@ export async function PATCH(req: Request) {
 
     if (teacherError) {
       console.error("Error updating teacher:", teacherError);
-      return NextResponse.json({ error: teacherError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: teacherError.message },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      message: "Teacher updated successfully",
-      teacher: teacherData
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        message: "Teacher updated successfully",
+        teacher: teacherData,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error in teacher update process:", error);
     return NextResponse.json(
@@ -296,13 +340,15 @@ export async function DELETE(req: Request) {
     // 1. Get the teacher record with the linked user's auth_id
     const { data: teacherWithUser, error: fetchError } = await supabase
       .from("teachers")
-      .select(`
+      .select(
+        `
         user_id,
         users (
           id,
           auth_id
         )
-      `)
+      `
+      )
       .eq("id", id)
       .single();
 
@@ -314,7 +360,7 @@ export async function DELETE(req: Request) {
     }
 
     // Extract auth_id for later use
-    const authId = teacherWithUser.users?.auth_id;
+    const authId = teacherWithUser.users.auth_id;
 
     // 2. Delete the teacher
     const { error: deleteTeacherError } = await supabase
@@ -343,7 +389,6 @@ export async function DELETE(req: Request) {
     // 4. Delete auth user using service client (Supabase Admin)
     try {
       const serviceClient = await createServiceClient();
-      
       // Delete the auth user using auth_id if available
       if (authId) {
         const { error: authDeleteError } =
@@ -364,8 +409,6 @@ export async function DELETE(req: Request) {
       console.error("Error deleting user from auth:", err);
       // Continue with the process, don't fail the request
     }
-
-    
   } catch (err) {
     console.error("Error in DELETE /teachers:", err);
     return NextResponse.json(

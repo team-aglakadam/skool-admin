@@ -1,51 +1,28 @@
-export type Gender = 'male' | 'female' | 'other' | 'prefer-not-to-say'
-export type EmploymentType = 'full-time' | 'part-time' | 'contract'
-export type TeacherStatus = 'active' | 'inactive'
-export type BloodGroup = 'O+' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O-'
+export type Teacher = {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  dateOfJoining?: string;
+  gender: "male" | "female" | "other" | "prefer-not-to-say";
+  bloodGroup: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+  dateOfBirth: string;
+  homeAddress?: string;
+  educationDetails: string;
+  status: "active" | "inactive";
+  subjects: string[];
+  employmentType: "full-time" | "part-time" | "contract";
+  createdAt: string;
+  updatedAt: string;
+};
 
-export interface Teacher {
-  id: string
-  name: string
-  email: string
-  mobile: string
-  gender: Gender
-  bloodGroup: BloodGroup
-  dateOfBirth: string
-  homeAddress: string
-  educationDetails: string
-  status: TeacherStatus
-  subjects: string[]
-  employmentType: EmploymentType
-  dateOfJoining: string
-  createdAt: string
-  updatedAt: string
-  school_id: string
-  is_active: boolean
-  users?: {
-    id: string
-    email: string
-    full_name: string
-    phone: string
-    address: string
-    date_of_birth: string
-    blood_group: string
-    gender: Gender
-    role: string
-  }
-}
+export type CreateTeacherData = Omit<
+  Teacher,
+  "id" | "createdAt" | "updatedAt"
+> & {
+  // Any additional fields specific to creation
+};
 
-export interface TeacherFormData {
-  name: string
-  email: string
-  mobile: string
-  gender: Gender
-  bloodGroup: BloodGroup
-  dateOfBirth: string
-  homeAddress: string
-  educationDetails: string
-  subjects: string[]
-  employmentType: EmploymentType
-  dateOfJoining: string
-  school_id: string
-  is_active: boolean
-}
+export type UpdateTeacherData = Partial<
+  Omit<Teacher, "id" | "createdAt" | "updatedAt">
+>;

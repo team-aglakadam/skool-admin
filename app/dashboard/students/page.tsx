@@ -1,54 +1,173 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 import {
   Plus,
   Search,
   Users,
   User,
-  MoreVertical,
+  GraduationCap,
   Edit,
   Trash2,
-  GraduationCap,
-  Mail,
-  Phone
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useStudents } from '@/contexts/StudentsContext'
-import { useClasses } from '@/contexts/ClassesContext'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useStudents } from "@/contexts/StudentsContext";
+import { useClasses } from "@/contexts/ClassesContext";
+import { StudentDialog } from "./components/student-dialog";
+
+interface Filters {
+  classId: string;
+  sectionId: string;
+  status: string;
+}
+
+interface StudentCardProps {
+  student: any;
+  className: string;
+  sectionName: string;
+  onDelete: (id: string) => void;
+}
+
+function StudentCard({
+  student,
+  className,
+  sectionName,
+  onDelete,
+}: StudentCardProps) {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Avatar>
+              <AvatarFallback>
+                {student.name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .substring(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-semibold">{student.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {className} - {sectionName}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm">
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDelete(student.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <div className="text-sm space-y-1">
+          <p>Roll: {student.rollNumber || "N/A"}</p>
+          <p className="text-muted-foreground">{student.email || "No email"}</p>
+          <p className="text-muted-foreground">
+            {student.mobile || "No phone"}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function StudentsPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const { students, loading, searchStudents, activeStudents, inactiveStudents } = useStudents()
-  const { classes } = useClasses()
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<Filters>({
+    classId: "",
+    sectionId: "",
+    status: "active",
+  });
+  const [selectedClassId, setSelectedClassId] = useState("");
 
-  const filteredStudents = searchStudents(searchTerm)
+  const { students, loading, activeStudents, inactiveStudents, deleteStudent } =
+    useStudents();
+  const { classes } = useClasses();
 
-  const getClassName = (classId: string) => {
-    const cls = classes.find(c => c.id === classId)
-    return cls?.name || 'Unknown Class'
-  }
+  const selectedClass = classes.find((c) => c.id === selectedClassId);
+  const sections = selectedClass?.sections || [];
+
+  const filteredStudents = students.filter((student) => {
+    const matchesSearch = searchTerm
+      ? student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+      : true;
+    const matchesClass =
+      !filters.classId || student.classId === filters.classId;
+    const matchesSection =
+      !filters.sectionId || student.sectionId === filters.sectionId;
+    const matchesStatus = !filters.status || student.status === filters.status;
+    return matchesSearch && matchesClass && matchesSection && matchesStatus;
+  });
+
+  const getClassName = (classId: string) =>
+    classes.find((c) => c.id === classId)?.name || "Unknown Class";
 
   const getSectionName = (classId: string, sectionId: string) => {
-    const cls = classes.find(c => c.id === classId)
-    const section = cls?.sections.find(s => s.id === sectionId)
-    return section?.name || 'Unknown Section'
-  }
+    const cls = classes.find((c) => c.id === classId);
+    return (
+      cls?.sections?.find((s) => s.id === sectionId)?.name || "Unknown Section"
+    );
+  };
 
-  if (loading) {
-    return <StudentsLoadingSkeleton />
-  }
+  const handleFilterChange = (key: keyof Filters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(key === "classId" ? { sectionId: "" } : {}),
+    }));
+    if (key === "classId") setSelectedClassId(value);
+  };
+
+  const resetFilters = () => {
+    setFilters({ classId: "", sectionId: "", status: "active" });
+    setSelectedClassId("");
+    setSearchTerm("");
+  };
+
+  const handleStudentAdded = () => {
+    // Reset search and filters when a new student is added
+    setSearchTerm("");
+    setFilters({ classId: "", sectionId: "", status: "active" });
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    if (confirm("Are you sure you want to delete this student?")) {
+      const result = await deleteStudent(id);
+      if (!result.success) {
+        alert(`Failed to delete student: ${result.error}`);
+      }
+    }
+  };
+
+  if (loading) return <StudentsLoadingSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -60,19 +179,16 @@ export default function StudentsPage() {
             Manage student information and enrollments
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Student
-          </Button>
-        </div>
+        <StudentDialog onSuccess={handleStudentAdded} />
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Students
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -81,7 +197,9 @@ export default function StudentsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Students
+            </CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -90,7 +208,9 @@ export default function StudentsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Inactive Students
+            </CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -127,139 +247,34 @@ export default function StudentsPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-10">
               <Users className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No students found</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                {students.length === 0
+                  ? "No students yet"
+                  : "No matching students"}
+              </h3>
               <p className="text-muted-foreground text-center">
-                {searchTerm ? 'Try adjusting your search term' : 'Get started by adding your first student'}
+                {searchTerm || Object.values(filters).some(Boolean)
+                  ? "Try adjusting your search or filters"
+                  : "Get started by adding your first student"}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredStudents.map((student) => (
-              <StudentCard 
-                key={student.id} 
-                student={student} 
+              <StudentCard
+                key={student.id}
+                student={student}
                 className={getClassName(student.classId)}
                 sectionName={getSectionName(student.classId, student.sectionId)}
+                onDelete={handleDeleteStudent}
               />
             ))}
           </div>
         )}
       </div>
     </div>
-  )
-}
-
-function StudentCard({ 
-  student, 
-  className, 
-  sectionName 
-}: { 
-  student: any
-  className: string
-  sectionName: string
-}) {
-  const { deleteStudent } = useStudents()
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
-  const handleDeleteStudent = async () => {
-    if (confirm(`Are you sure you want to delete ${student.name}? This action cannot be undone.`)) {
-      const result = await deleteStudent(student.id)
-      if (result.success) {
-        console.log('Student deleted successfully')
-        // You can add a toast notification here
-      } else {
-        console.error('Failed to delete student:', result.error)
-      }
-    }
-  }
-
-  return (
-    <Card className="relative">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback>
-                {getInitials(student.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-lg">{student.name}</CardTitle>
-              <CardDescription className="flex items-center space-x-1">
-                <Mail className="h-3 w-3" />
-                <span className="text-xs">{student.email}</span>
-              </CardDescription>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Student
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={handleDeleteStudent}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Student
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Class Info */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">{className}</p>
-            <p className="text-xs text-muted-foreground">Section {sectionName}</p>
-          </div>
-          <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
-            {student.status}
-          </Badge>
-        </div>
-
-        {/* Contact Info */}
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2 text-sm">
-            <Phone className="h-3 w-3 text-muted-foreground" />
-            <span>{student.mobile}</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <User className="h-3 w-3 text-muted-foreground" />
-            <span>Parent: {student.parentName}</span>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-2 pt-2">
-          <Button size="sm" className="flex-1">
-            <Edit className="mr-2 h-3 w-3" />
-            Edit
-          </Button>
-          <Button size="sm" variant="outline" className="flex-1">
-            <GraduationCap className="mr-2 h-3 w-3" />
-            View Details
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
+  );
 }
 
 function StudentsLoadingSkeleton() {
@@ -323,5 +338,5 @@ function StudentsLoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
-} 
+  );
+}

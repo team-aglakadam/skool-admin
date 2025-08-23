@@ -92,7 +92,26 @@ const navigation: Record<string, NavigationItem[]> = {
         { name: "Manage", href: "/dashboard/teachers/manage", icon: Settings },
       ],
     },
-    { name: "Classes", href: "/dashboard/classes", icon: GraduationCap },
+    {
+      name: "Students",
+      icon: UserCheck,
+      submenu: [
+        { name: "All Students", href: "/dashboard/students", icon: Users },
+        {
+          name: "Attendance",
+          href: "/dashboard/attendance/students",
+          icon: ClipboardCheck,
+        },
+      ],
+    },
+    {
+      name: "Classes",
+      icon: GraduationCap,
+      submenu: [
+        { name: "All Classes", href: "/dashboard/classes", icon: BookOpen },
+        { name: "Sections", href: "/dashboard/classes/sections", icon: Users },
+      ],
+    },
     { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardCheck },
     { name: "Results", href: "/dashboard/results", icon: BarChart3 },
     { name: "Bus Routes", href: "/dashboard/bus-routes", icon: Bus },

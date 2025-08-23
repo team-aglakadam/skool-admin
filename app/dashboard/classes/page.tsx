@@ -1,43 +1,65 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 import {
   Plus,
   Search,
   Users,
   GraduationCap,
-  User as UserIcon,
-  MoreVertical,
-  Trash2,
+  User,
   BookOpen,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useClasses } from '@/contexts/ClassesContext'
-import { useTeachers } from '@/contexts/TeachersContext'
-import { useSubjects } from '@/contexts/SubjectsContext'
-import { CreateClassDialog } from './components/CreateClassDialog'
-import { Class } from '@/types/class'
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useClasses, Class, ClassSection } from "@/contexts/ClassesContext";
+import { useTeachers } from "@/contexts/TeachersContext";
+import { useSubjects } from "@/contexts/SubjectsContext";
+import { useSubjectAssignments } from "@/contexts/SubjectAssignmentsContext";
+import { CreateClassDialog, ClassCardsGrid, EmptyState } from "./components";
 
 export default function ClassesPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const { classes, loading, searchClasses } = useClasses()
-  const { teachers } = useTeachers()
-  const { subjects } = useSubjects()
+  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    classes,
+    loading,
+    searchClasses,
+    getTotalStudents,
+    getTotalSections,
+    deleteClass,
+  } = useClasses();
+  const { teachers } = useTeachers();
+  const { subjects } = useSubjects();
+  const { subjectAssignments, deleteSubjectAssignment } =
+    useSubjectAssignments();
 
-  const filteredClasses = searchClasses(searchTerm)
+  const filteredClasses = searchClasses(searchTerm);
+
+  const handleDeleteClass = async (classId: string, className: string) => {
+    if (
+      confirm(
+        `Are you sure you want to delete "${className}"? This action cannot be undone.`
+      )
+    ) {
+      const result = await deleteClass(classId);
+      if (result.success) {
+        // State will be updated automatically by the context
+        console.log(`Class "${className}" deleted successfully`);
+      } else {
+        console.error("Failed to delete class:", result.error);
+      }
+    }
+  };
 
   if (loading) {
-    return <ClassesLoadingSkeleton />
+    return <ClassesLoadingSkeleton />;
   }
 
   return (
@@ -51,7 +73,11 @@ export default function ClassesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CreateClassDialog>
+          <CreateClassDialog
+            onSuccess={() => {
+              // Refresh data if needed
+            }}
+          >
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Create Class
@@ -73,29 +99,37 @@ export default function ClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sections</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Sections
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{classes.length}</div>
+            <div className="text-2xl font-bold">{getTotalSections()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
-            <UserIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Total Students
+            </CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{teachers.length}</div>
+            <div className="text-2xl font-bold">{getTotalStudents()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Subject Assignments
+            </CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{subjects.length}</div>
+            <div className="text-2xl font-bold">
+              {subjectAssignments.length}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -113,142 +147,68 @@ export default function ClassesPage() {
         </div>
       </div>
 
-      {/* Classes List */}
-      <div className="space-y-4">
-        {filteredClasses.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-10">
-              <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No classes found</h3>
-              <p className="text-muted-foreground text-center">
-                {searchTerm ? 'Try adjusting your search term' : 'Get started by creating your first class'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredClasses.map((cls) => (
-              <ClassCard key={cls.id} classData={cls} />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Class Cards */}
+      <ClassCardsGrid
+        classes={filteredClasses}
+        teachers={teachers}
+        onDeleteClass={handleDeleteClass}
+      />
+
+      {/* Empty State */}
+      {filteredClasses.length === 0 && <EmptyState searchTerm={searchTerm} />}
     </div>
-  )
-}
-
-function ClassCard({ classData }: { 
-  classData: Class
-}) {
-  const { deleteClass } = useClasses()
-
-  const getTeacherName = () => {
-    if (!classData.class_teacher_id) return 'No teacher assigned'
-    return classData.teachers ? classData.teachers.users.full_name : 'No teacher assigned'
-  }
-
-  const handleDeleteClass = async () => {
-    if (confirm(`Are you sure you want to delete ${classData.name}? This action cannot be undone.`)) {
-      const result = await deleteClass(classData.id)
-      if (result.success) {
-        console.log('Class deleted successfully')
-      } else {
-        console.error('Failed to delete class:', result.error)
-      }
-    }
-  }
-
-  return (
-    <Card className="relative">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-xl">{classData.name}</CardTitle>
-            <CardDescription>
-              Section {classData.section}
-            </CardDescription>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleDeleteClass()}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Class
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {/* Class Teacher */}
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback>
-                {getTeacherName().substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Class Teacher: </span>
-              {getTeacherName()}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+  );
 }
 
 function ClassesLoadingSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
-          <p className="text-muted-foreground">
-            Manage classes, sections, and subject assignments
-          </p>
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-64" />
         </div>
+        <Skeleton className="h-10 w-32" />
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-[100px]" />
-              <Skeleton className="h-4 w-4" />
+            <CardHeader>
+              <Skeleton className="h-4 w-24" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-[50px]" />
+              <Skeleton className="h-8 w-16" />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Classes Grid */}
+      <Skeleton className="h-10 w-72" />
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <Card key={i}>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-[150px]" />
-                  <Skeleton className="h-4 w-[100px]" />
+              <div className="flex justify-between">
+                <div>
+                  <Skeleton className="h-5 w-24 mb-1" />
+                  <Skeleton className="h-4 w-32" />
                 </div>
                 <Skeleton className="h-8 w-8" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-16" />
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-[200px]" />
-                  <Skeleton className="h-4 w-[150px]" />
+                  {[...Array(2)].map((_, j) => (
+                    <Skeleton key={j} className="h-20 w-full" />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 flex-1" />
+                  <Skeleton className="h-8 flex-1" />
                 </div>
               </div>
             </CardContent>
@@ -256,5 +216,5 @@ function ClassesLoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
-} 
+  );
+}
