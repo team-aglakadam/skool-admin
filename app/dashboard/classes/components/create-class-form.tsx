@@ -62,6 +62,7 @@ export default function CreateClassForm({
   getAvailableSectionNames,
   getAssignedTeacherName,
 }: CreateClassFormProps) {
+
   const handleSubmit = async (data: CreateClassFormValues) => {
     try {
       await onSubmit(data)
@@ -73,8 +74,6 @@ export default function CreateClassForm({
 
   return (
     <Form {...form}>
-      {/* Summary */}
-
 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Class Name */}
@@ -182,7 +181,7 @@ export default function CreateClassForm({
                                       <SelectValue placeholder="Select teacher" />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent className="min-h-[250px]">
+                                   <SelectContent className="min-h-[250px]">
                                     <SelectItem value="unassigned">Unassigned</SelectItem>
                                     {teachers.map((teacher) => (
                                       <SelectItem key={teacher.id} value={teacher.id}>
