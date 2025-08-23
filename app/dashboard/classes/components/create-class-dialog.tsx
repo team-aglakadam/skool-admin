@@ -16,7 +16,7 @@ import { Class, useClasses } from '@/contexts/ClassesContext'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useTeachers } from '@/contexts/TeachersContext'
+import { Teacher } from '@/app/types/teacher'
 
 // Enhanced schema with teacher assignments
 const createClassFormSchema = z.object({
@@ -37,13 +37,13 @@ const SECTION_NAMES = Array.from({ length: 26 }, (_, i) =>
 interface CreateClassDialogProps {
     onSuccess?: () => void
     children?: React.ReactNode
+    teachers: Teacher[]
 }
 
-export function CreateClassDialog({ onSuccess, children }: CreateClassDialogProps) {
+export function CreateClassDialog({ onSuccess, children, teachers }: CreateClassDialogProps) {
     const [open, setOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const { createClass } = useClasses()
-    const { teachers } = useTeachers()
 
     const form = useForm<CreateClassFormValues>({
         resolver: zodResolver(createClassFormSchema),
@@ -64,11 +64,24 @@ export function CreateClassDialog({ onSuccess, children }: CreateClassDialogProp
     const handleSubmit = async (data: CreateClassFormValues) => {
         try {
             setIsSubmitting(true)
-            await createClass(data)
-            setOpen(false)
-            onSuccess?.()
-            // Reset form after successful submission
-            form.reset()
+            const result = await createClass(data)
+            
+            if (result.success) {
+                // Success case: Close dialog, reset form, and call onSuccess callback
+                setOpen(false)
+                form.reset()
+                onSuccess?.()
+                
+                // You could add toast/notification here
+                console.log(`Class ${data.name} with ${data.sections.length} sections created successfully`)
+            } else {
+                // Error case: Keep dialog open and show error
+                console.error('Failed to create class:', result.error)
+                alert(`Failed to create class: ${result.error}`)
+            }
+        } catch (error) {
+            console.error('Error in class creation:', error)
+            alert('An unexpected error occurred while creating the class')
         } finally {
             setIsSubmitting(false)
         }
