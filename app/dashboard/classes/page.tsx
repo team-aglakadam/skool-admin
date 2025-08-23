@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -35,11 +35,18 @@ export default function ClassesPage() {
     getTotalSections,
     deleteClass,
   } = useClasses();
-  const { teachers } = useTeachers();
+  const { teachers, loading: teachersLoading } = useTeachers();
   const { subjects } = useSubjects();
   const { subjectAssignments, deleteSubjectAssignment } =
     useSubjectAssignments();
 
+  // Add ability to refresh classes data
+  const refreshClasses = () => {
+    // Force refetch classes data
+    window.location.reload();
+  };
+  
+  // Filter classes by search term
   const filteredClasses = searchClasses(searchTerm);
 
   const handleDeleteClass = async (classId: string, className: string) => {
@@ -48,7 +55,7 @@ export default function ClassesPage() {
         `Are you sure you want to delete "${className}"? This action cannot be undone.`
       )
     ) {
-      const result = await deleteClass(classId);
+      const result = await deleteClass(classId, className);
       if (result.success) {
         // State will be updated automatically by the context
         console.log(`Class "${className}" deleted successfully`);
@@ -58,7 +65,7 @@ export default function ClassesPage() {
     }
   };
 
-  if (loading) {
+  if (loading || teachersLoading) {
     return <ClassesLoadingSkeleton />;
   }
 
@@ -74,8 +81,10 @@ export default function ClassesPage() {
         </div>
         <div className="flex items-center gap-2">
           <CreateClassDialog
+            teachers={teachers}
             onSuccess={() => {
-              // Refresh data if needed
+              console.log("Class created successfully");
+              refreshClasses();
             }}
           >
             <Button>
