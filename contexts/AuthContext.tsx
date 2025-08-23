@@ -17,6 +17,7 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  schoolId: string | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   isLoading: true,
   signOut: async () => {},
+  schoolId: null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -106,8 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/auth/login");
   };
 
+  // Extract schoolId from user metadata
+  const schoolId = user?.user_metadata?.school_id || null;
+  
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signOut, schoolId }}>
       {children}
     </AuthContext.Provider>
   );
