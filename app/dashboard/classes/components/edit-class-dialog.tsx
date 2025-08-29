@@ -17,13 +17,13 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useTeachers } from '@/contexts/TeachersContext'
-import { Teacher } from '@/app/types/teacher'
 import CreateClassForm from './create-class-form'
 
 // Enhanced schema with teacher assignments
 const editClassFormSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   sections: z.array(z.object({
+    id: z.string().optional(), // Add section ID field
     name: z.string().min(1, 'Section name is required'),
     teacherId: z.string().optional(),
   })).min(1, 'At least one section is required'),
@@ -49,12 +49,13 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
     const [success, setSuccess] = useState<string | null>(null)
     const { updateClass } = useClasses()
     const { teachers } = useTeachers()
-
     const form = useForm<EditClassFormValues>({
         resolver: zodResolver(editClassFormSchema),
+
         defaultValues: {
             name: classData.name,
             sections: classData.sections.map(section => ({
+                id: section.id, // Include the section ID
                 name: section.name,
                 teacherId: section.classTeacherId || undefined
             }))
@@ -75,6 +76,7 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
             form.reset({
                 name: classData.name,
                 sections: classData.sections.map(section => ({
+                    id: section.id,
                     name: section.name,
                     teacherId: section.classTeacherId || undefined
                 }))
@@ -125,6 +127,7 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
         form.reset({
             name: classData.name,
             sections: classData.sections.map(section => ({
+                id: section.id, // Include section ID when resetting form
                 name: section.name,
                 teacherId: section.classTeacherId || undefined
             }))
@@ -139,6 +142,7 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
         
         if (availableSections.length > 0) {
             append({
+                id: undefined, // Initialize as undefined for new sections
                 name: availableSections[0],
                 teacherId: undefined
             })
@@ -204,6 +208,7 @@ export function EditClassDialog({ classData, onSuccess, children }: EditClassDia
                         onSubmit={handleSubmit}
                         onCancel={handleCancel}
                         isSubmitting={isSubmitting}
+                        isEditing={true}
                         addSection={addSection}
                         removeSection={removeSection}
                         getAvailableSectionNames={getAvailableSectionNames}
