@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { MoreVertical, Edit, Trash2, Users, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Class, ClassSection } from '@/contexts/ClassesContext'
+import { Class } from '@/contexts/ClassesContext'
 import { Teacher } from '@/app/types/teacher'
 import { SectionCard } from './section-card'
 import { EditClassDialog } from './edit-class-dialog'
@@ -54,7 +53,8 @@ export function ClassCard({ classData, teachers, onDelete }: ClassCardProps) {
                     <EditClassDialog 
                       classData={classData}
                       onSuccess={() => {
-                        // Refresh data if needed
+                        // Force data refresh
+                        window.location.reload()
                       }}
                     >
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
