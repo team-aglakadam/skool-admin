@@ -355,67 +355,147 @@ export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()
     const body = await request.json()
-
-    // Get the current class data to check for teacher changes
-    const { data: currentClass, error: fetchError } = await supabase
-      .from('classes')
-      .select('class_teacher_id, name, section')
-      .eq('id', body.id)
-      .single()
-
-    if (fetchError) throw fetchError
-
-    // Update class details
-    const { data, error: updateError } = await supabase
-      .from('classes')
-      .update({
-        name: body.name,
-        section: body.section,
-        class_teacher_id: body.class_teacher_id
-      })
-      .eq('id', body.id)
-      .select()
-      .single()
-
-    if (updateError) throw updateError
-
-    // Handle teacher updates if teacher has changed
-    if (currentClass.class_teacher_id !== body.class_teacher_id) {
-      if (currentClass.class_teacher_id) {
-        // Set is_class_teacher to false for previous teacher
-        const { error: prevTeacherError } = await supabase
-          .from('teachers')
-          .update({ is_class_teacher: false })
-          .eq('id', currentClass.class_teacher_id)
-
-        if (prevTeacherError) {
-          console.error('Error updating previous teacher:', prevTeacherError)
-        }
-      }
-
-      if (body.class_teacher_id) {
-        // Set is_class_teacher to true for new teacher
-        const { error: newTeacherError } = await supabase
-          .from('teachers')
-          .update({ is_class_teacher: true })
-          .eq('id', body.class_teacher_id)
-
-        if (newTeacherError) {
-          console.error('Error updating new teacher:', newTeacherError)
-        }
-      }
+    
+    console.log('PUT /api/classes body:', body);
+    debugger;
+    // Get the class to update
+    const classId = body.class_id || body.id;
+    if (!classId) {
+      return NextResponse.json(
+        { error: "Class ID is required" },
+        { status: 400 }
+      );
     }
+    
+    // Get current class data
+    const { data: classData, error: fetchError } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('id', classId)
+      .single()
 
-    return NextResponse.json(
-      { data, message: `Class ${body.name}-${body.section} updated successfully` }
-    )
+    if (fetchError) {
+      console.error('Error fetching class:', fetchError);
+      return NextResponse.json(
+        { error: "Class not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Track what was updated for the response
+    const updates = [];
+    const updatedSections = [];
+    
+    // We'll handle class name updates within each section's update
+    // since each section is a separate record in the classes table
+    
+    // Process sections if provided
+    if (body.sections && Array.isArray(body.sections) && body.sections.length > 0) {
+      console.log('Processing sections:', body.sections);
+      
+      for (const section of body.sections) {
+        // Map frontend property names to backend expected names
+        const sectionId = section.section_id || section.id;
+        const sectionName = section.section || section.name;
+        const classTeacherId = section.class_teacher_id || section.teacherId;
+        
+        console.log('Processing section:', {
+          sectionId,
+          sectionName,
+          classTeacherId,
+          deleted: section.deleted
+        });
+        
+        if (section.deleted && sectionId) {
+          // Delete section
+          const { error: deleteError } = await supabase
+            .from('classes')
+            .delete()
+            .eq('id', sectionId);
+            
+          if (deleteError) {
+            console.error('Error deleting section:', deleteError);
+            throw deleteError;
+          }
+          
+          updatedSections.push({ id: sectionId, action: 'deleted' });
+        } else if (sectionId) {
+          // Update existing section
+          const updatePayload: any = {};
+          
+          // Only include fields that were provided
+          if (body.name) {
+            updatePayload.name = body.name;
+          }
+          
+          if (sectionName) {
+            updatePayload.section = sectionName;
+          }
+          
+          if (classTeacherId !== undefined) {
+            updatePayload.class_teacher_id = classTeacherId;
+          }
+          
+          console.log(`Updating section ${sectionId} with:`, updatePayload);
+          
+          const { error: sectionUpdateError } = await supabase
+            .from('classes')
+            .update(updatePayload)
+            .eq('id', sectionId);
+            
+          if (sectionUpdateError) {
+            console.error('Error updating section:', sectionUpdateError);
+            throw sectionUpdateError;
+          }
+          
+          updatedSections.push({ 
+            id: sectionId, 
+            section: sectionName, 
+            class_teacher_id: classTeacherId,
+            action: 'updated' 
+          });
+        } else {
+          // Create new section
+          const { data: newSection, error: createError } = await supabase
+            .from('classes')
+            .insert({
+              name: body.name || classData.name,
+              section: sectionName,
+              class_teacher_id: classTeacherId,
+              school_id: body.school_id || classData.school_id
+            })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('Error creating new section:', createError);
+            throw createError;
+          }
+          
+          updatedSections.push({
+            ...newSection,
+            action: 'created'
+          });
+        }
+      }
+      
+      updates.push('sections');
+    }
+    
+    // If we get here, all updates were successful
+    return NextResponse.json({
+      success: true,
+      message: updates.length > 0 
+        ? `Class updated successfully (${updates.join(', ')})` 
+        : 'No changes made',
+      updates: updates,
+      sections: updatedSections
+    });
   } catch (err) {
-    console.error('Error updating class:', err)
+    console.error('Error updating class:', err);
     return NextResponse.json(
       { error: 'Internal server error', message: 'Failed to update class: An unexpected error occurred' },
       { status: 500 }
-    )
+    );
   }
 }
-
-// Duplicate DELETE function removed - functionality merged into the unified DELETE handler above
