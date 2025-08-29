@@ -18,16 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { Plus, X, User, Users } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Teacher } from '@/app/types/teacher'
 
 type CreateClassFormValues = {
   name: string
   sections: Array<{
+    id?: string      // Add section ID for edits
     name: string
     teacherId?: string
   }>
@@ -42,6 +42,7 @@ interface CreateClassFormProps {
   onSubmit: (data: CreateClassFormValues) => Promise<void>
   onCancel: () => void
   isSubmitting: boolean
+  isEditing?: boolean
   addSection: () => void
   removeSection: (index: number) => void
   getAvailableSectionNames: (currentIndex: number) => string[]
@@ -57,6 +58,7 @@ export default function CreateClassForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  isEditing = false,
   addSection,
   removeSection,
   getAvailableSectionNames,
@@ -65,10 +67,30 @@ export default function CreateClassForm({
 
   const handleSubmit = async (data: CreateClassFormValues) => {
     try {
-      await onSubmit(data)
-      toast.success('Class created successfully!')
+      // Log form values for debugging
+      console.log('Form data before submission:', data);
+      console.log('Section IDs:', data.sections.map(s => s.id));
+      
+      // Ensure we have valid data
+      const validData = {
+        name: data.name,
+        sections: data.sections.map((section, index) => {
+          // Get the section from the original data if available
+          const originalSection = sections[index];
+          return {
+            ...section,
+            // If section ID is undefined or null but we have an original section, use that ID
+            id: section.id || (originalSection?.id || undefined)
+          };
+        })
+      };
+      
+      console.log('Form data after processing:', validData);
+      await onSubmit(validData);
+      toast.success(isEditing ? 'Class updated successfully!' : 'Class created successfully!');
     } catch (error) {
-      toast.error('An error occurred. Please try again.')
+      console.error('Error submitting form:', error);
+      toast.error('An error occurred. Please try again.');
     }
   }
 
@@ -134,6 +156,23 @@ export default function CreateClassForm({
                       {/* Section and Teacher Selection */}
                       <div className="flex flex-1 w-full">
                         {/* Section Name */}
+                        <FormField
+                          control={form.control}
+                          name={`sections.${index}.id`}
+                          render={({ field }) => {
+                            // Debug log to see what value is coming through
+                            console.log(`Section ${index} ID value:`, field.value);
+                            return (
+                              <input 
+                                type="hidden" 
+                                name={field.name} 
+                                value={field.value || ''} 
+                                onChange={field.onChange}
+                                ref={field.ref}
+                              />
+                            );
+                          }}
+                        />
                         <div className='flex flex-1'>
                           <FormField
                             control={form.control}
@@ -238,7 +277,10 @@ export default function CreateClassForm({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Class'}
+            {isSubmitting 
+              ? (isEditing ? 'Updating...' : 'Creating...') 
+              : (isEditing ? 'Update Class' : 'Create Class')
+            }
           </Button>
         </div>
       </form>
