@@ -12,8 +12,9 @@ import { useUserStore } from "@/store/userStore";
 import { useAuth } from "./AuthContext";
 
 export type ClassSection = {
-  id: string;
-  name: string; // A, B, C, D, etc.
+  id: string;      // ID for frontend use
+  dbId: string;    // Actual database ID for API operations
+  name: string;    // A, B, C, D, etc.
   classId: string;
   classTeacherId: string | null;
   classTeacher?: Teacher;
@@ -23,8 +24,9 @@ export type ClassSection = {
 };
 
 export type Class = {
-  id: string;
-  name: string; // Class 1, Grade 1, etc.
+  id: string;      // ID for frontend use
+  dbId: string;    // Actual database ID for API operations
+  name: string;    // Class 1, Grade 1, etc.
   sections: ClassSection[];
   totalStudents: number;
   createdAt: string;
@@ -34,7 +36,8 @@ export type Class = {
 export type CreateClassData = {
   name: string;
   sections: Array<{
-    name: string; // Section name like 'A', 'B', 'C'
+    id?: string;      // Section ID - required for edits, optional for new classes
+    name: string;     // Section name like 'A', 'B', 'C'
     teacherId?: string; // Optional teacher ID for the section
   }>;
 };
@@ -120,27 +123,31 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
         // Convert to frontend model
         const processedClasses: Class[] = Object.entries(groupedClasses)
           .map(([className, sections]) => {
-            const classId = `${className}-${Date.now()}`; // Generate a unique ID for the class group
+            // Use the first section's ID as the master class ID for grouping
+            // (all sections of the same class name will share this reference)
+            const firstSection = sections[0];
+            const classId = firstSection.id;
             
             return {
-              id: classId,
+              id: classId,                // Use the actual database ID of the first section
+              dbId: classId,              // Store the actual DB ID separately for API operations
               name: className,
               sections: sections.map(section => ({
-                id: section.id,
+                id: section.id,           // Actual database ID of the section
+                dbId: section.id,          // Store the DB ID explicitly
                 name: section.section,
-                classId: classId,
+                classId: classId,          // Reference to parent class
                 classTeacherId: section.class_teacher_id,
-                studentCount: 0, // This would need to be calculated from a separate API call
+                studentCount: 0,           // This would need to be calculated from a separate API call
                 createdAt: section.created_at,
                 updatedAt: section.created_at
               })),
-              totalStudents: 0, // This would be calculated from actual data
+              totalStudents: 0,           // This would be calculated from actual data
               createdAt: sections[0].created_at,
               updatedAt: sections[0].created_at
             };
           })
           .sort((a, b) => a.name.localeCompare(b.name)); // Sort by class name
-        
         setClasses(processedClasses);
       } catch (error) {
         console.error('Error loading classes:', error);
@@ -187,19 +194,26 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
       const { data } = await response.json();
       
       // Map the returned data to our frontend model
-      const classId = Date.now().toString(); // Use a temp ID if API doesn't return proper ID
+      // Use data from the API response, if available
+      const responseData = data || [];
+      
+      // Generate a class ID if needed
+      const classId = responseData[0]?.id || `class-${Date.now()}`;
+      
       const newClass: Class = {
         id: classId,
+        dbId: classId, // Store the actual database ID for API operations
         name: classData.name,
-        sections: data.map((classSection: any) => ({
-          id: classSection.id || `${classId}-${classSection.section}`,
+        sections: responseData.map((classSection: any) => ({
+          id: classSection.id,
+          dbId: classSection.id, // Store the actual database ID for API operations
           name: classSection.section,
-          classId: classSection.id,
-          classTeacherId: classSection.class_teacher_id,
+          classId: classId,
+          classTeacherId: classSection.class_teacher_id || null,
           studentCount: 0,
-          createdAt: classSection.created_at,
-          updatedAt: classSection.created_at,
-        })) || [],
+          createdAt: classSection.created_at || new Date().toISOString(),
+          updatedAt: classSection.created_at || new Date().toISOString(),
+        })),
         totalStudents: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -229,21 +243,71 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
         throw new Error('Class not found');
       }
 
-      // For now, we only handle updating the first section of the class
-      // In a full implementation, this would need to update multiple sections
-      if (classToUpdate.sections.length > 0 && updates.sections.length > 0) {
-        const firstSection = classToUpdate.sections[0];
-        const firstSectionUpdate = updates.sections[0];
+      // Compare current class name with updated name
+      const hasNameChanged = classToUpdate.name !== updates.name;
+      
+      // Create updates payload with only changed fields
+      // No need for a class_id at top level - each section has its own ID
+      const payload: any = {
+        school_id: schoolId,
+        class_id: id,
+        sections: []
+      };
+      
+      console.log('Sections to update:', classToUpdate.sections);
+      
+      // Compare and update sections
+      for (const updatedSection of updates.sections) {
+        // Find matching section in original class data
+        const originalSection = classToUpdate.sections.find(
+          section => section.id === updatedSection.id
+        );
         
-        // Prepare payload for API
-        const payload = {
-          id: firstSection.id,
-          name: updates.name,
-          section: firstSectionUpdate.name,
-          class_teacher_id: firstSectionUpdate.teacherId || null,
-          school_id: schoolId
-        };
-        
+        if (originalSection) {
+          // Section exists - check if name or teacher has changed
+          const hasTeacherChanged = originalSection.classTeacherId !== updatedSection.teacherId;
+          const hasNameChanged = classToUpdate.name !== updates.name;
+          const hasSectionNameChanged = originalSection.name !== updatedSection.name;
+          
+          if (hasTeacherChanged || hasNameChanged || hasSectionNameChanged) {
+            // Only include changed sections in the payload
+            payload.sections.push({
+              section_id: originalSection.dbId, // Use the correct database ID for this section
+              name: updates.name, // Update class name for all sections if changed
+              section: updatedSection.name,
+              class_teacher_id: updatedSection.teacherId || null
+            });
+          }
+        } else {
+          // New section - add it
+          payload.sections.push({
+            name: updates.name, // Use the current class name
+            section: updatedSection.name,
+            class_teacher_id: updatedSection.teacherId || null
+          });
+        }
+      }
+      
+      // Check for removed sections
+      const updatedSectionNames = updates.sections.map(s => s.id);
+      const removedSections = classToUpdate.sections.filter(
+        section => !updatedSectionNames.includes(section.id)
+      );
+      
+      // Add removed sections to payload
+      for (const removedSection of removedSections) {
+        payload.sections.push({
+          section_id: removedSection.dbId, // Use the correct database ID for this section
+          deleted: true
+        });
+      }
+      
+      console.log('Update payload:', payload);
+      
+      console.log('Preparing to update with payload:', payload);
+      
+      // Only make API call if there are changes
+      if (hasNameChanged || payload.sections.length > 0) {
         // Call API to update class in database
         const response = await fetch('/api/classes', {
           method: 'PUT',
@@ -253,35 +317,73 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify(payload)
         });
         
+        console.log('Update API response status:', response.status);
+        
+        // Clone the response for both error checking and data extraction
+        const responseClone = response.clone();
+        
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await responseClone.json();
           throw new Error(errorData.error || 'Failed to update class');
         }
-
+        
         // Get the updated class data from response
         const updatedData = await response.json();
         console.log('API response data:', updatedData);
         
-        // Update local state
-        setClasses((prev) =>
-          prev.map((cls) => {
+        // Update local state with new data
+        setClasses((prevClasses) =>
+          prevClasses.map((cls) => {
             if (cls.id === id) {
-              // Update sections with new data
-              const updatedSections = cls.sections.map((section, index) => {
-                // Only update the first section for now
-                if (index === 0) {
-                  return {
-                    ...section,
-                    name: firstSectionUpdate.name,
-                    classTeacherId: firstSectionUpdate.teacherId || null,
-                    updatedAt: new Date().toISOString(),
-                  };
+              // Update sections based on our changes
+              const updatedSections = cls.sections.map((section) => {
+                // Find if this section was updated
+                const updatedSectionData = updates.sections.find(s => s.name === section.name);
+                
+                if (updatedSectionData) {
+                  // Apply updates if teacher changed
+                  if (section.classTeacherId !== updatedSectionData.teacherId) {
+                    return {
+                      ...section,
+                      classTeacherId: updatedSectionData.teacherId || null,
+                      updatedAt: new Date().toISOString()
+                    };
+                  }
                 }
                 return section;
               });
+              
+              // Add any new sections
+              for (const newSection of updates.sections) {
+                const sectionExists = updatedSections.some(s => s.name === newSection.name);
+                if (!sectionExists) {
+                  // This is a new section added during edit
+                  const newSectionData = updatedData?.sections?.find(
+                    (s: any) => s.name === newSection.name
+                  );
+                  
+                  if (newSectionData) {
+                    updatedSections.push({
+                      id: newSectionData.id,
+                      dbId: newSectionData.id, // Add the database ID for API operations
+                      name: newSection.name,
+                      classId: id,
+                      classTeacherId: newSection.teacherId || null,
+                      studentCount: 0,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    });
+                  }
+                }
+              }
+              
+              // Remove deleted sections
+              const remainingSections = updatedSections.filter(section =>
+                updates.sections.some(s => s.name === section.name)
+              );
 
               // Calculate new total students
-              const newTotalStudents = updatedSections.reduce(
+              const newTotalStudents = remainingSections.reduce(
                 (total, section) => total + section.studentCount,
                 0
               );
@@ -289,7 +391,7 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
               return {
                 ...cls,
                 name: updates.name,
-                sections: updatedSections,
+                sections: remainingSections,
                 totalStudents: newTotalStudents,
                 updatedAt: new Date().toISOString(),
               };
@@ -297,16 +399,16 @@ export function ClassesProvider({ children }: { children: ReactNode }) {
             return cls;
           })
         );
-        
-        return { 
-          success: true,
-          message: updatedData.message || 'Class updated successfully' 
-        };
-      } else {
-        throw new Error('Invalid class sections configuration');
       }
+      
+      return { 
+        success: true, 
+        message: hasNameChanged || payload.sections.length > 0 
+          ? 'Class updated successfully' 
+          : 'No changes detected'
+      };
     } catch (error: any) {
-      console.error('Error updating class:', error);
+      console.error("Error updating class:", error);
       return { success: false, error: error?.message || "Failed to update class" };
     }
   };
