@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+interface StudentRecord {
+  id: string;
+  user_id: string;
+  roll_number: string | null;
+  class_id: string;
+  section_id: string;
+  is_active: boolean;
+  users?: {
+    full_name?: string;
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("class_id");
-    const sectionId = searchParams.get("section_id");
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -67,24 +78,80 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const supabase = await createClient();
+    const body = await request.json();
     
-    // In the future, this would create a student record in your backend/database
-    const newStudent = {
-      id: `student-${Date.now()}`,
-      student_id: `STU${String(Date.now()).slice(-3)}`,
-      ...body,
-      admission_date: new Date().toISOString().split('T')[0]
+    // Get current user/admin who is creating the student
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    const schoolId = user.user_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json({ error: "School ID not found" }, { status: 400 });
+    }
+    
+    // First, create a user record
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert({
+        school_id: schoolId,
+        email: body.email,
+        role: 'student',
+        full_name: body.name,
+        phone: body.mobile,
+        address: body.address,
+        date_of_birth: body.dateOfBirth,
+        blood_group: body.bloodGroup
+      })
+      .select()
+      .single();
+      
+    if (userError) {
+      console.error('Error creating user record:', userError);
+      return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+    }
+    
+    // Then create a student record linked to the user
+    // Since class and section are in the same record, classId is used for both
+    const { data: studentData, error: studentError } = await supabase
+      .from('students')
+      .insert({
+        user_id: userData.id,
+        school_id: schoolId,
+        class_id: body.classId, // Using classId for class reference
+        roll_number: body.rollNumber || null, // Make roll number optional
+        is_active: true,
+        parent_name: body.parentName,
+        parent_number: body.parentMobile
+      })
+      .select()
+      .single();
+    
+    if (studentError) {
+      console.error('Error creating student record:', studentError);
+      return NextResponse.json({ error: 'Failed to create student record' }, { status: 500 });
     }
     
     return NextResponse.json({ 
       success: true, 
-      data: newStudent 
-    }, { status: 201 })
+      data: {
+        id: studentData.id,
+        name: userData.full_name,
+        email: userData.email,
+        classId: studentData.class_id, // Using class_id for both class and section references
+        sectionId: studentData.class_id, // Using the same ID since class and section are in the same record
+        rollNumber: studentData.roll_number,
+        parentName: studentData.parent_name,
+        parentMobile: studentData.parent_number
+      }
+    }, { status: 201 });
   } catch (error) {
+    console.error('Unexpected error creating student:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create student' },
       { status: 500 }
-    )
+    );
   }
 } 
