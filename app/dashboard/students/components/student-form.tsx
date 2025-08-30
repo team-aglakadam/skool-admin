@@ -40,16 +40,16 @@ const BloodGroupEnum = z.enum(BLOOD_GROUPS as unknown as [string, ...string[]]);
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email" }),
-  rollNumber: z.string().min(1, { message: "Roll number is required" }),
+  rollNumber: z.string().optional().or(z.literal('')),
   classId: z.string().min(1, { message: "Class is required" }),
   sectionId: z.string().min(1, { message: "Section is required" }),
-  mobile: z.string().min(10, { message: "Please enter a valid mobile number" }),
+  mobile: z.string().min(10, { message: "Please enter a valid mobile number" }).or(z.literal('')),
   dateOfBirth: z.string().min(1, { message: "Date of birth is required" }),
-  gender: GenderEnum,
-  bloodGroup: BloodGroupEnum,
+  gender: GenderEnum.optional(),
+  bloodGroup: BloodGroupEnum.optional(),
   parentName: z.string().min(2, { message: "Parent's name is required" }),
-  parentMobile: z.string().min(10, { message: "Please enter a valid mobile number" }),
-  address: z.string().min(1, { message: "Address is required" }),
+  parentMobile: z.string().min(10, { message: "Please enter a valid mobile number" }).or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
 });
 
 type StudentFormValues = z.infer<typeof formSchema>;
@@ -58,12 +58,14 @@ interface StudentFormProps {
   initialData?: Student;
   onSuccess?: () => void;
   onCancel?: () => void;
+  disableClassSection?: boolean;
 }
 
 export function StudentForm({
   initialData,
   onSuccess,
   onCancel,
+  disableClassSection = false,
 }: StudentFormProps) {
   // Import the StudentsContext
   const { addStudent, updateStudent } = useStudents();
@@ -88,33 +90,48 @@ export function StudentForm({
     },
   });
 
+  // Set initial values on component mount
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
-      setSelectedClassId(initialData.classId);
+      
+      // Set selectedClassId to make section dropdown work correctly
+      if (initialData.classId) {
+        setSelectedClassId(initialData.classId);
+      }
     }
   }, [initialData, form]);
 
   const selectedClass = classes.find((cls) => cls.id === selectedClassId);
   const sections = selectedClass?.sections || [];
+  
+  // Get display names for class and section when disabled
+  const classDisplayName = selectedClass?.name || "";
+  const sectionDisplayName = sections.find(s => s.id === form.getValues().sectionId)?.name || "";
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      // Ensure required fields are present
-      if (!values.gender || !values.bloodGroup) {
-        toast.error("Please fill in all required fields");
-        return;
-      }
+      console.log("Form submitted with values:", values);
+      
+      // Use default values if gender or bloodGroup are not provided
+      const gender = values.gender || 'prefer-not-to-say';
+      const bloodGroup = values.bloodGroup || 'O+';
+      
+      console.log("Using gender:", gender, "and bloodGroup:", bloodGroup);
 
-      // Cast to the correct types
+      // Create studentData with proper values
       const studentData: CreateStudentData = {
         ...values,
-        gender: values.gender as Gender,
-        bloodGroup: values.bloodGroup as BloodGroup,
+        gender: gender as Gender,
+        bloodGroup: bloodGroup as BloodGroup,
+        address: values.address || "", // Ensure address is not undefined
       };
+      console.log("Prepared student data for API:", studentData);
 
-      if (initialData) {
+      if (initialData && initialData.id && initialData.id.trim() !== "") {
+        console.log("Updating existing student with ID:", initialData.id);
         const result = await updateStudent(initialData.id, studentData);
+        console.log("Update student result:", result);
         if (result.success) {
           toast.success("Student updated successfully");
           onSuccess?.();
@@ -122,7 +139,9 @@ export function StudentForm({
           toast.error(result.error || "Failed to update student");
         }
       } else {
+        console.log("Creating new student, calling addStudent...");
         const result = await addStudent(studentData);
+        console.log("Add student result:", result);
         if (result.success) {
           toast.success("Student created successfully");
           onSuccess?.();
@@ -192,28 +211,32 @@ export function StudentForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Class</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    setSelectedClassId(value);
-                    form.setValue("sectionId", ""); // Reset section when class changes
-                  }}
-                  value={field.value}
-                  disabled={loadingClasses}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  {disableClassSection && initialData?.classId ? (
+                    <Input value={classDisplayName} disabled readOnly />
+                  ) : (
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setSelectedClassId(value);
+                        form.setValue("sectionId", ""); // Reset section when class changes
+                      }}
+                      value={field.value}
+                      disabled={loadingClasses}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -225,24 +248,28 @@ export function StudentForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Section</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  disabled={!selectedClassId || loadingClasses}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select section" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {sections.map((section) => (
-                      <SelectItem key={section.id} value={section.id}>
-                        {section.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  {disableClassSection && initialData?.sectionId ? (
+                    <Input value={sectionDisplayName} disabled readOnly />
+                  ) : (
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!selectedClassId || loadingClasses}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
