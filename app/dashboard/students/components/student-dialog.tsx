@@ -18,10 +18,16 @@ interface StudentDialogProps {
   initialData?: any;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function StudentDialog({ initialData, onSuccess, trigger }: StudentDialogProps) {
-  const [open, setOpen] = useState(false);
+export function StudentDialog({ initialData, onSuccess, trigger, open: controlledOpen, onOpenChange }: StudentDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? onOpenChange! : setInternalOpen;
 
   const handleSuccess = () => {
     setOpen(false);
@@ -30,14 +36,11 @@ export function StudentDialog({ initialData, onSuccess, trigger }: StudentDialog
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Student
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initialData ? 'Edit Student' : 'Add New Student'}</DialogTitle>

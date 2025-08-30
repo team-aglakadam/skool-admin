@@ -136,18 +136,41 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     studentData: CreateStudentData
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const newStudent: Student = {
-        ...studentData,
-        id: Date.now().toString(),
-        status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData),
+      });
 
-      setStudents((prev) => [newStudent, ...prev]);
-      return { success: true };
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create student');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const newStudent: Student = {
+          ...studentData,
+          id: result.data.id,
+          status: "active",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        setStudents((prev) => [newStudent, ...prev]);
+        return { success: true };
+      } else {
+        throw new Error(result.error || 'Failed to create student');
+      }
     } catch (error) {
-      return { success: false, error: "Failed to add student" };
+      console.error('Error adding student:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to add student" 
+      };
     }
   };
 

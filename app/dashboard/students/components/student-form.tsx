@@ -114,13 +114,22 @@ export function StudentForm({
       };
 
       if (initialData) {
-        await updateStudent(initialData.id, studentData);
-        toast.success("Student updated successfully");
+        const result = await updateStudent(initialData.id, studentData);
+        if (result.success) {
+          toast.success("Student updated successfully");
+          onSuccess?.();
+        } else {
+          toast.error(result.error || "Failed to update student");
+        }
       } else {
-        await addStudent(studentData);
-        toast.success("Student created successfully");
+        const result = await addStudent(studentData);
+        if (result.success) {
+          toast.success("Student created successfully");
+          onSuccess?.();
+        } else {
+          toast.error(result.error || "Failed to create student");
+        }
       }
-      onSuccess?.();
     } catch (error) {
       console.error("Error saving student:", error);
       toast.error("Failed to save student. Please try again.");
@@ -276,6 +285,70 @@ export function StudentForm({
                 <FormControl>
                   <Input placeholder="Parent's mobile number" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dateOfBirth"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date of Birth</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Gender</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {GENDER.map((gender) => (
+                      <SelectItem key={gender} value={gender}>
+                        {gender.charAt(0).toUpperCase() + gender.slice(1).replace('-', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="bloodGroup"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Blood Group</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select blood group" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {BLOOD_GROUPS.map((bloodGroup) => (
+                      <SelectItem key={bloodGroup} value={bloodGroup}>
+                        {bloodGroup}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
