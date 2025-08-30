@@ -27,10 +27,21 @@ export type Student = {
   updatedAt: string;
 };
 
-export type CreateStudentData = Omit<
-  Student,
-  "id" | "status" | "createdAt" | "updatedAt"
->;
+// Modified to make some fields optional for form compatibility
+export type CreateStudentData = {
+  name: string;
+  email: string;
+  mobile: string;
+  dateOfBirth: string;
+  gender?: "male" | "female" | "other" | "prefer-not-to-say";
+  bloodGroup?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+  address?: string;
+  parentName: string;
+  parentMobile: string;
+  classId: string;
+  sectionId: string;
+  rollNumber?: string;
+};
 
 export type UpdateStudentData = Partial<
   Omit<Student, "id" | "createdAt" | "updatedAt">
@@ -155,6 +166,10 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
         const newStudent: Student = {
           ...studentData,
           id: result.data.id,
+          // Ensure required fields are present with default values if missing
+          gender: studentData.gender || 'prefer-not-to-say',
+          bloodGroup: studentData.bloodGroup || 'O+',
+          address: studentData.address || '',
           status: "active",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
