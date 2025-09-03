@@ -114,8 +114,7 @@ interface StudentsContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   deleteStudent: (id: string) => Promise<{ success: boolean; error?: string }>;
   getStudentById: (id: string) => Student | undefined;
-  getStudentsByClass: (classId: string) => Student[];
-  getStudentsBySection: (classId: string, sectionId: string) => Student[];
+  fetchStudentsByClass: (classId: string) => Promise<Student[]>;
   searchStudents: (searchTerm: string) => Student[];
   activeStudents: Student[];
   inactiveStudents: Student[];
@@ -222,18 +221,20 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     return students.find((student) => student.id === id);
   };
 
-  const getStudentsByClass = (classId: string): Student[] => {
-    return students.filter((student) => student.classId === classId);
-  };
-
-  const getStudentsBySection = (
-    classId: string,
-    sectionId: string
-  ): Student[] => {
-    return students.filter(
-      (student) =>
-        student.classId === classId && student.sectionId === sectionId
-    );
+  const fetchStudentsByClass = async (classId: string): Promise<Student[]> => {
+    try {
+      const response = await fetch(`/api/students?class_id=${classId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch students for the class');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching students by class:', error);
+      // Re-throw the error to be handled by the calling component
+      throw error;
+    }
   };
 
   const searchStudents = (searchTerm: string): Student[] => {
@@ -258,8 +259,7 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     updateStudent,
     deleteStudent,
     getStudentById,
-    getStudentsByClass,
-    getStudentsBySection,
+    fetchStudentsByClass,
     searchStudents,
     activeStudents,
     inactiveStudents,
