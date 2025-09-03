@@ -19,39 +19,40 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("class_id");
 
-    // Get current user
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!classId) {
-      return NextResponse.json({ error: "class_id is required" }, { status: 400 });
-    }
-
-    // Build query
     let query = supabase
       .from("students")
       .select(`
         id,
-        user_id,
         roll_number,
-        class_id,
         is_active,
+        created_at,
+        parent_name,
+        parent_number,
+        class_id,
         users (
-          full_name
+          full_name,
+          email,
+          phone,
+          date_of_birth,
+          blood_group,
+          gender
         )
       `)
-      .eq("school_id", user.user_metadata?.school_id)
-      .eq("is_active", true);
+      .eq("school_id", user.user_metadata?.school_id);
 
-    // Filter by class
     if (classId) {
       query = query.eq("class_id", classId);
     }
+    
 
-    // Order by roll number
-    query = query.order("roll_number", { ascending: true, nullsFirst: false });
+
+    query = query.order("created_at", { ascending: false });
 
     const { data: students, error } = await query;
 
@@ -60,13 +61,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 });
     }
 
-    // Transform the data to match expected format
     const transformedData = (students || []).map((student: any) => ({
       id: student.id,
-      name: student.users?.full_name || 'Unknown Student',
-      roll_number: student.roll_number,
-      class_id: student.class_id,
-      is_active: student.is_active
+      name: student.users?.full_name || 'N/A',
+      email: student.users?.email || 'N/A',
+      mobile: student.users?.phone || 'N/A',
+      dateOfBirth: student.users?.date_of_birth,
+      gender: student.users?.gender || 'N/A',
+      bloodGroup: student.users?.blood_group || 'N/A',
+      parentName: student.parent_name || 'N/A',
+      parentMobile: student.parent_number || 'N/A',
+      rollNumber: student.roll_number || 'N/A',
+      status: student.is_active ? 'active' : 'inactive',
+      createdAt: student.created_at,
+      classId: student.class_id,
+
     }));
 
     return NextResponse.json(transformedData);
