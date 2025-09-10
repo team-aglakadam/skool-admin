@@ -210,10 +210,24 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     id: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      const response = await fetch(`/api/students?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete student');
+      }
+
+      // Only update local state after successful API call
       setStudents((prev) => prev.filter((student) => student.id !== id));
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Failed to delete student" };
+      console.error('Error deleting student:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to delete student"
+      };
     }
   };
 
