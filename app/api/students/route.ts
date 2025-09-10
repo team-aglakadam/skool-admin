@@ -6,10 +6,17 @@ interface StudentRecord {
   user_id: string;
   roll_number: string | null;
   class_id: string;
-  section_id: string;
   is_active: boolean;
+  created_at: string;
+  parent_name?: string;
+  parent_number?: string;
   users?: {
     full_name?: string;
+    email?: string;
+    phone?: string;
+    date_of_birth?: string;
+    blood_group?: string;
+    gender?: string;
   };
 }
 
@@ -163,4 +170,77 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get("id");
+
+    if (!studentId) {
+      return NextResponse.json({ error: "Student ID is required" }, { status: 400 });
+    }
+
+    // Verify authorization
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // First, get the student record to find the associated user_id
+    const { data: student, error: fetchError } = await supabase
+      .from('students')
+      .select('user_id')
+      .eq('id', studentId)
+      .eq('school_id', user.user_metadata?.school_id)
+      .single();
+    console.log("student data", student , "school id", user.user_metadata?.school_id);
+    if (fetchError) {
+      console.error('Error fetching student:', fetchError);
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    if (!student || !student.user_id) {
+      return NextResponse.json({ error: 'Invalid student record' }, { status: 400 });
+    }
+
+    // Delete the student record first
+    const { error: deleteStudentError } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', studentId)
+      .eq('school_id', user.user_metadata?.school_id);
+
+    if (deleteStudentError) {
+      console.error('Error deleting student:', deleteStudentError);
+      return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 });
+    }
+
+    // Then delete the user record
+    const { error: deleteUserError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', student.user_id)
+      .eq('school_id', user.user_metadata?.school_id);
+console.log("delete user error", deleteUserError);
+    if (deleteUserError) {
+      console.error('Error deleting user:', deleteUserError);
+      return NextResponse.json(
+        { 
+          warning: 'Student record deleted but user record could not be deleted',
+          error: deleteUserError.message 
+        }, 
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Unexpected error deleting student:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete student' },
+      { status: 500 }
+    );
+  }
+}
