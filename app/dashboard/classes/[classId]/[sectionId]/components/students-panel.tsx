@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, User, X } from "lucide-react";
+import { Users, Plus, User, X, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { StudentForm } from "@/app/dashboard/students/components/student-form";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ClassSection } from "@/contexts/ClassesContext";
 import { Student, useStudents } from "@/contexts/StudentsContext";
@@ -12,6 +12,46 @@ import { GenericTable } from "@/app/components/table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+
+
+function DeleteConfirmationDialog({ student, isOpen, onClose, onConfirm, isLoading }: { student: Student | null, isOpen: boolean, onClose: () => void, onConfirm: () => void, isLoading?: boolean }) {
+  if (!student) return null;
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirm Student Deletion</DialogTitle>
+          <DialogDescription className="py-4">
+            Are you sure you want to delete student <span className="font-semibold">{student.name}</span>? This action cannot be undone, 
+            and will remove their user account and all associated data.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Student
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const studentColumns: ColumnDef<Student>[] = [
   {
@@ -68,10 +108,42 @@ const studentColumns: ColumnDef<Student>[] = [
 ];
 
 function ClassStudentsList({ classId }: { classId: string }) {
-  const { fetchStudentsByClass } = useStudents();
+  const { fetchStudentsByClass, deleteStudent } = useStudents();
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const result = await deleteStudent(studentToDelete.id);
+      if (result.success) {
+        toast.success(`${studentToDelete.name} has been deleted successfully`);
+        // Refresh the student list
+        const updatedStudents = await fetchStudentsByClass(classId);
+        setStudents(updatedStudents);
+      } else {
+        toast.error(result.error || 'Failed to delete student');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setStudentToDelete(null);
+    }
+  };
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -117,7 +189,29 @@ function ClassStudentsList({ classId }: { classId: string }) {
     );
   }
 
-  return <GenericTable columns={studentColumns} data={students} />;
+  const handleEdit = (student: Student) => {
+    // In the future, this would open an edit dialog
+    // For now, just show a message
+    toast.info(`Edit functionality for ${student.name} will be implemented soon`);
+  };
+  
+  return (
+    <>
+      <GenericTable 
+        columns={studentColumns} 
+        data={students} 
+        onDelete={handleDeleteClick}
+        onEdit={handleEdit}
+      />
+      <DeleteConfirmationDialog
+        student={studentToDelete}
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+      />
+    </>
+  );
 }
 
 interface StudentsPanelProps {
