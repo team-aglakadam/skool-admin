@@ -52,7 +52,7 @@ const formSchema = z.object({
   address: z.string().optional().or(z.literal('')),
 });
 
-type StudentFormValues = z.infer<typeof formSchema>;
+// We infer the form values type directly when using it
 
 interface StudentFormProps {
   initialData?: Student;
@@ -82,8 +82,8 @@ export function StudentForm({
       sectionId: "",
       mobile: "",
       dateOfBirth: "",
-      gender: undefined,
-      bloodGroup: undefined,
+      gender: "",
+      bloodGroup: "",
       parentName: "",
       parentMobile: "",
       address: "",
@@ -93,12 +93,26 @@ export function StudentForm({
   // Set initial values on component mount
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData);
+      console.log("Raw initialData received by form:", initialData);
+      console.log("Gender type and value:", typeof initialData.gender, initialData.gender);
+      console.log("BloodGroup type and value:", typeof initialData.bloodGroup, initialData.bloodGroup);
+      console.log("Address type and value:", typeof initialData.address, initialData.address);
       
+      // Convert undefined values to default values for fields that can't be undefined
+      const sanitizedData = {
+        ...initialData,
+        gender: initialData.gender || 'prefer-not-to-say',
+        bloodGroup: initialData.bloodGroup || 'O+',
+        address: initialData.address || '',
+      };
+      
+      console.log("Sanitized form data:", sanitizedData);
+      form.reset(sanitizedData);
+
       // Set selectedClassId to make section dropdown work correctly
       if (initialData.classId) {
         setSelectedClassId(initialData.classId);
-      }
+      } 
     }
   }, [initialData, form]);
 
@@ -107,7 +121,14 @@ export function StudentForm({
   
   // Get display names for class and section when disabled
   const classDisplayName = selectedClass?.name || "";
-  const sectionDisplayName = sections.find(s => s.id === form.getValues().sectionId)?.name || "";
+  // In the database, class_id is used for both class and section
+  // So for display purposes, we need to use the class name
+  // const sectionDisplayName = initialData?.classId === selectedClassId ? selectedClass?.name || "" : 
+  //   sections.find(s => s.id === form.getValues().sectionId)?.name || "";
+  const sectionDisplayName = sections.find((s) => s.id === selectedClassId)?.name || "";
+    
+  console.log("Class Display Name:", classDisplayName);
+  console.log("Section Display Name:", sectionDisplayName);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -154,7 +175,7 @@ export function StudentForm({
       toast.error("Failed to save student. Please try again.");
     }
   };
-
+debugger;
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -337,10 +358,13 @@ export function StudentForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Gender</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value || "prefer-not-to-say"}
+                >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select gender" />
+                      <SelectValue placeholder="Select gender"/>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -362,10 +386,13 @@ export function StudentForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Blood Group</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value || "O+"}
+                >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select blood group" />
+                      <SelectValue placeholder="Select blood group"/>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -401,7 +428,8 @@ export function StudentForm({
             Cancel
           </Button>
           <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? "Saving..." : "Save Student"}
+            {form.formState.isSubmitting ? "Saving..." : 
+              initialData?.id ? "Update Student" : "Save Student"}
           </Button>
         </div>
       </form>
