@@ -107,7 +107,11 @@ const studentColumns: ColumnDef<Student>[] = [
   },
 ];
 
-function ClassStudentsList({ classId }: { classId: string }) {
+function ClassStudentsList({ classId, onEditStudent, refreshTrigger = 0 }: { 
+  classId: string, 
+  onEditStudent: (student: Student) => void,
+  refreshTrigger?: number 
+}) {
   const { fetchStudentsByClass, deleteStudent } = useStudents();
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,7 +167,8 @@ function ClassStudentsList({ classId }: { classId: string }) {
     };
 
     loadStudents();
-  }, [classId, fetchStudentsByClass]);
+    // refreshTrigger is used to force a reload when it changes
+  }, [classId, fetchStudentsByClass, refreshTrigger]);
 
   if (isLoading) {
     return (
@@ -188,12 +193,6 @@ function ClassStudentsList({ classId }: { classId: string }) {
         </div>
     );
   }
-
-  const handleEdit = (student: Student) => {
-    // In the future, this would open an edit dialog
-    // For now, just show a message
-    toast.info(`Edit functionality for ${student.name} will be implemented soon`);
-  };
   
   return (
     <>
@@ -201,7 +200,7 @@ function ClassStudentsList({ classId }: { classId: string }) {
         columns={studentColumns} 
         data={students} 
         onDelete={handleDeleteClick}
-        onEdit={handleEdit}
+        onEdit={onEditStudent}
       />
       <DeleteConfirmationDialog
         student={studentToDelete}
@@ -222,11 +221,29 @@ interface StudentsPanelProps {
 
 export function StudentsPanel({ classData, sectionData, onClose }: StudentsPanelProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleAddSuccess = () => {
-    setIsAddDialogOpen(false);
-    toast.success("Student added successfully");
-    // You might want to refresh the student list here
+  const handleStudentSuccess = (action: 'add' | 'edit') => {
+    if (action === 'add') {
+      setIsAddDialogOpen(false);
+      toast.success("Student added successfully");
+    } else {
+      setIsEditDialogOpen(false);
+      setStudentToEdit(null);
+      toast.success("Student updated successfully");
+    }
+    // Increment refresh trigger to reload the student list
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleEdit = (student: Student) => {
+    // Log the student data being passed to edit
+    console.log('Student data for edit:', student);
+    
+    setStudentToEdit(student);
+    setIsEditDialogOpen(true);
   };
 
   return (
@@ -285,12 +302,43 @@ export function StudentsPanel({ classData, sectionData, onClose }: StudentsPanel
                         createdAt: "",
                         updatedAt: ""
                       } as Student}
-                      onSuccess={handleAddSuccess}
+                      onSuccess={() => handleStudentSuccess('add')}
                       onCancel={() => setIsAddDialogOpen(false)}
                     />
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Edit Student Dialog */}
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Edit Student</DialogTitle>
+                    <DialogDescription>
+                      Update the student&apos;s information below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    {studentToEdit && (
+                      <StudentForm
+                        disableClassSection={true}
+                        initialData={{
+                          ...studentToEdit,
+                          // Make sure sectionId is correctly set to classId as per DB schema
+                          sectionId: studentToEdit.classId,
+                          // Explicitly set these fields to ensure they're not undefined
+                          gender: studentToEdit.gender || 'prefer-not-to-say',
+                          bloodGroup: studentToEdit.bloodGroup || 'O+',
+                          address: studentToEdit.address || ''
+                        }}
+                        onSuccess={() => handleStudentSuccess('edit')}
+                        onCancel={() => setIsEditDialogOpen(false)}
+                      />
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Button size="sm" variant="outline">
                 <User className="h-3 w-3 mr-1" />
                 Import Students
@@ -301,7 +349,11 @@ export function StudentsPanel({ classData, sectionData, onClose }: StudentsPanel
           <div className="text-sm text-muted-foreground">
             Manage student enrollment, attendance, and academic records for this section.
           </div>
-          <ClassStudentsList classId={sectionData.id} />
+          <ClassStudentsList 
+            classId={sectionData.id} 
+            onEditStudent={handleEdit} 
+            refreshTrigger={refreshTrigger}
+          />
         </div>
       </CardContent>
     </Card>
