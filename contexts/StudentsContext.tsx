@@ -193,16 +193,45 @@ export function StudentsProvider({ children }: { children: ReactNode }) {
     updates: UpdateStudentData
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      setStudents((prev) =>
-        prev.map((student) =>
-          student.id === id
-            ? { ...student, ...updates, updatedAt: new Date().toISOString() }
-            : student
-        )
-      );
-      return { success: true };
+      const response = await fetch('/api/students', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, ...updates }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update student');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update local state with the returned data
+        setStudents((prev) =>
+          prev.map((student) =>
+            student.id === id
+              ? { 
+                  ...student, 
+                  ...updates, 
+                  ...(result.data || {}), // Use the returned data if available
+                  updatedAt: new Date().toISOString() 
+                }
+              : student
+          )
+        );
+        return { success: true };
+      } else {
+        throw new Error(result.error || 'Failed to update student');
+      }
     } catch (error) {
-      return { success: false, error: "Failed to update student" };
+      console.error('Error updating student:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to update student"
+      };
     }
   };
 
