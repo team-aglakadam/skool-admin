@@ -1,178 +1,85 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+
 
 export type Subject = {
-  id: string
-  name: string
-  code: string
-  description?: string
-  createdAt: string
-  updatedAt: string
+  id: string;
+  name: string;
+  class_id: string;
+  school_id: string;
+  teacher_id?: string;
+  is_break?: boolean;
+  created_at: string;
 }
 
-export type CreateSubjectData = Omit<Subject, 'id' | 'createdAt' | 'updatedAt'>
-
-// Dummy subject data
-const dummySubjects: Subject[] = [
-  { 
-    id: '1', 
-    name: 'Mathematics', 
-    code: 'MATH', 
-    description: 'Core mathematics including algebra, geometry, and calculus',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '2', 
-    name: 'English', 
-    code: 'ENG', 
-    description: 'English language and literature',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '3', 
-    name: 'Science', 
-    code: 'SCI', 
-    description: 'General science including physics, chemistry, and biology',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '4', 
-    name: 'History', 
-    code: 'HIST', 
-    description: 'World history and social studies',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '5', 
-    name: 'Physics', 
-    code: 'PHY', 
-    description: 'Advanced physics concepts',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '6', 
-    name: 'Chemistry', 
-    code: 'CHEM', 
-    description: 'Chemical sciences and laboratory work',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '7', 
-    name: 'Biology', 
-    code: 'BIO', 
-    description: 'Life sciences and biological concepts',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  },
-  { 
-    id: '8', 
-    name: 'Computer Science', 
-    code: 'CS', 
-    description: 'Programming and computer fundamentals',
-    createdAt: '2024-01-15T09:00:00Z', 
-    updatedAt: '2024-01-15T09:00:00Z' 
-  }
-]
+export type CreateSubjectData = Pick<Subject, 'name' | 'class_id'> & Partial<Pick<Subject, 'teacher_id' | 'is_break' | 'school_id'>>;
 
 interface SubjectsContextType {
-  subjects: Subject[]
-  loading: boolean
-  addSubject: (subjectData: CreateSubjectData) => Promise<{ success: boolean; error?: string }>
-  updateSubject: (id: string, updates: Partial<Subject>) => Promise<{ success: boolean; error?: string }>
-  deleteSubject: (id: string) => Promise<{ success: boolean; error?: string }>
-  getSubjectById: (id: string) => Subject | undefined
-  searchSubjects: (searchTerm: string) => Subject[]
-  totalSubjects: number
+  subjects: Subject[];
+  loading: boolean;
+  fetchSubjectsByClass: (classId: string) => Promise<void>;
+  addSubject: (subjectData: CreateSubjectData) => Promise<{ success: boolean; data?: Subject; error?: string | null }>;
 }
 
 const SubjectsContext = createContext<SubjectsContextType | undefined>(undefined)
 
 export function SubjectsProvider({ children }: { children: ReactNode }) {
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [loading, setLoading] = useState(true)
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Simulate API call
-    const loadSubjects = async () => {
-      setLoading(true)
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      setSubjects(dummySubjects)
-      setLoading(false)
-    }
-
-    loadSubjects()
-  }, [])
-
-  const addSubject = async (subjectData: CreateSubjectData): Promise<{ success: boolean; error?: string }> => {
+  const fetchSubjectsByClass = useCallback(async (classId: string) => {
+    setLoading(true);
     try {
-      const newSubject: Subject = {
-        ...subjectData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+      const response = await fetch(`/api/subjects?classId=${classId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch subjects');
+      }
+      const data = await response.json();
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      setSubjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const addSubject = useCallback(async (subjectData: CreateSubjectData) => {
+    try {
+      const response = await fetch('/api/subjects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subjectData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create subject');
       }
 
-      setSubjects(prev => [newSubject, ...prev])
-      return { success: true }
+      const result = await response.json();
+      
+      if (result.success) {
+        setSubjects((prev) => [...prev, result.data]);
+        return { success: true, data: result.data };
+      } else {
+        throw new Error(result.error || 'Failed to create subject');
+      }
     } catch (error) {
-      return { success: false, error: 'Failed to add subject' }
+      console.error('Error adding subject:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return { success: false, error: errorMessage };
     }
-  }
-
-  const updateSubject = async (id: string, updates: Partial<Subject>): Promise<{ success: boolean; error?: string }> => {
-    try {
-      setSubjects(prev => prev.map(subject => 
-        subject.id === id 
-          ? { ...subject, ...updates, updatedAt: new Date().toISOString() }
-          : subject
-      ))
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: 'Failed to update subject' }
-    }
-  }
-
-  const deleteSubject = async (id: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      setSubjects(prev => prev.filter(subject => subject.id !== id))
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: 'Failed to delete subject' }
-    }
-  }
-
-  const getSubjectById = (id: string): Subject | undefined => {
-    return subjects.find(subject => subject.id === id)
-  }
-
-  const searchSubjects = (searchTerm: string): Subject[] => {
-    if (!searchTerm) return subjects
-    
-    const term = searchTerm.toLowerCase()
-    return subjects.filter(subject => 
-      subject.name.toLowerCase().includes(term) ||
-      subject.code.toLowerCase().includes(term) ||
-      (subject.description && subject.description.toLowerCase().includes(term))
-    )
-  }
+  }, []);
 
   const value: SubjectsContextType = {
     subjects,
     loading,
+    fetchSubjectsByClass,
     addSubject,
-    updateSubject,
-    deleteSubject,
-    getSubjectById,
-    searchSubjects,
-    totalSubjects: subjects.length
   }
 
   return (
