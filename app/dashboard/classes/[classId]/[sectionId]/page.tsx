@@ -3,23 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Users, User, BookOpen, Calendar, GraduationCap, Plus, Pencil } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useClasses } from '@/contexts/ClassesContext'
-import { useTeachers } from '@/contexts/TeachersContext'
-import { Class, ClassSection } from '@/contexts/ClassesContext'
-import { Teacher } from '@/app/types/teacher'
-import { StudentsPanel, SubjectsPanel, TimetablePanel, TeacherAssignment } from './components'
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useClasses } from '@/contexts/ClassesContext';
+import { useTeachers } from '@/contexts/TeachersContext';
+import { SubjectsProvider } from '@/contexts/SubjectsContext';
+import { Class, ClassSection } from '@/contexts/ClassesContext';
+import { StudentsPanel, SubjectsPanel, TimetablePanel, TeacherAssignment } from './components';
 
 export default function ClassSectionPage() {
   const params = useParams()
@@ -108,10 +99,7 @@ export default function ClassSectionPage() {
     setSelectedTeacherId('')
   }
 
-  const handleEditTeacher = () => {
-    setShowTeacherSelect(true)
-    setSelectedTeacherId(teacher?.id || '')
-  }
+  
 
   const handleManageStudents = () => {
     setActivePanel(activePanel === 'students' ? null : 'students')
@@ -269,11 +257,13 @@ export default function ClassSectionPage() {
       )}
 
       {activePanel === 'subjects' && (
-        <SubjectsPanel
-          classData={classData}
-          sectionData={sectionData}
-          onClose={closeAllPanels}
-        />
+        <SubjectsProvider>
+          <SubjectsPanel
+            classData={classData}
+            sectionData={sectionData}
+            onClose={closeAllPanels}
+          />
+        </SubjectsProvider>
       )}
 
       {activePanel === 'timetable' && (
