@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Plus, X } from "lucide-react"
+import { BookOpen, Plus, X } from "lucide-react";
+import { useState, useEffect } from 'react';
+import AddSubjectModal from './add-subject-modal';
+import { useSubjects } from '@/contexts/SubjectsContext';
 import { ClassSection } from "@/types/database"
 
 interface SubjectsPanelProps {
@@ -11,6 +14,20 @@ interface SubjectsPanelProps {
 }
 
 export function SubjectsPanel({ classData, sectionData, onClose }: SubjectsPanelProps) {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { subjects, loading, fetchSubjectsByClass } = useSubjects();
+
+  useEffect(() => {
+    if (sectionData.classId) {
+      fetchSubjectsByClass(sectionData.classId);
+    }
+  }, [sectionData.classId, fetchSubjectsByClass]);
+
+  const handleModalClose = () => {
+    setIsAddModalOpen(false);
+    fetchSubjectsByClass(sectionData.classId);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -31,40 +48,24 @@ export function SubjectsPanel({ classData, sectionData, onClose }: SubjectsPanel
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          {loading ? (
+            <p>Loading subjects...</p>
+          ) : subjects.length > 0 ? (
             <div className="space-y-2">
-              <h4 className="font-medium">Core Subjects</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">Mathematics</span>
-                  <Badge variant="outline">Assigned</Badge>
+              {subjects.map((subject) => (
+                <div key={subject.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                  <span className="text-sm">{subject.name}</span>
+                  <Badge variant={subject.teacher_id ? 'outline' : 'secondary'}>
+                    {subject.teacher_id ? 'Assigned' : 'Unassigned'}
+                  </Badge>
                 </div>
-                <div className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">English</span>
-                  <Badge variant="outline">Assigned</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">Science</span>
-                  <Badge variant="secondary">Unassigned</Badge>
-                </div>
-              </div>
+              ))}
             </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">Elective Subjects</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">Computer Science</span>
-                  <Badge variant="outline">Assigned</Badge>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">History</span>
-                  <Badge variant="secondary">Unassigned</Badge>
-                </div>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p>No subjects found for this class.</p>
+          )}
           <div className="flex gap-2">
-            <Button size="sm">
+            <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
               <Plus className="h-3 w-3 mr-1" />
               Add Subject
             </Button>
@@ -75,6 +76,14 @@ export function SubjectsPanel({ classData, sectionData, onClose }: SubjectsPanel
           </div>
         </div>
       </CardContent>
+      <AddSubjectModal 
+        isOpen={isAddModalOpen} 
+        onClose={handleModalClose} 
+        classId={sectionData.classId} 
+         
+        classData={classData}
+        sectionData={sectionData}
+      />
     </Card>
   )
 }
