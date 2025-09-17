@@ -23,14 +23,20 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('class_subjects')
     .insert(dataToInsert)
-    .select()
+    .select('*, teacher:teachers(user:users(full_name))')
     .single();
 
   if (error) {
+    console.error('Error creating subject:', error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ success: true, data });
+  const responseData = {
+    ...data,
+    teacher_name: data.teacher?.user?.full_name
+  };
+
+  return NextResponse.json({ success: true, data: responseData });
 }
 
 export async function GET(request: NextRequest) {
@@ -54,13 +60,69 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('class_subjects')
-    .select('*')
+    .select('*, teacher:teachers(user:users(full_name))')
     .eq('school_id', schoolId)
     .eq('class_id', classId);
 
   if (error) {
+    console.error('Error fetching subjects:', error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json(data);
+  const subjects = data.map(s => ({
+    ...s,
+    teacher_name: s.teacher?.user?.full_name
+  }));
+
+  return NextResponse.json(subjects);
+}
+
+export async function PUT(request: Request) {
+  const supabase = await createClient();
+  const { id, ...updateData } = await request.json();
+
+  if (!id) {
+    return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from('class_subjects')
+    .update(updateData)
+    .eq('id', id)
+    .select('*, teacher:teachers(user:users(full_name))')
+    .single();
+
+  if (error) {
+    console.error('Error updating subject:', error);
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  const responseData = {
+    ...data,
+    teacher_name: data.teacher?.user?.full_name
+  };
+
+  return NextResponse.json({ success: true, data: responseData });
+}
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from('class_subjects')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting subject:', error);
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ success: true, message: 'Subject deleted successfully' });
 }
