@@ -420,12 +420,10 @@ export async function PUT(request: NextRequest) {
           
           updatedSections.push({ id: sectionId, action: 'deleted' });
         } else if (sectionId) {
-          // Update existing section
           const updatePayload: any = {};
           
-          // Only include fields that were provided
-          if (body.name) {
-            updatePayload.name = body.name;
+          if (section.name) {
+            updatePayload.name = section.name;
           }
           
           if (sectionName) {
