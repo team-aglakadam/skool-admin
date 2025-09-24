@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Plus, BookOpen, X } from "lucide-react"
+import { Calendar, Plus, X } from "lucide-react"
 import { ClassSection } from "@/types/database"
 
 interface TimetablePanelProps {
@@ -10,17 +10,35 @@ interface TimetablePanelProps {
 }
 
 export function TimetablePanel({ classData, sectionData, onClose }: TimetablePanelProps) {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-  const timeSlots = ['8:00-9:00', '9:00-10:00', '10:00-11:00', '11:00-12:00']
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  const getSubjectForSlot = (index: number) => {
-    switch (index) {
-      case 0: return 'Mathematics'
-      case 1: return 'English'
-      case 2: return 'Science'
-      default: return 'Break'
-    }
-  }
+  // Placeholder data - this will be replaced with fetched data
+  const timetableData = [
+    { day: 'Monday', startTime: '09:00', endTime: '10:00', subject: 'Mathematics' },
+    { day: 'Monday', startTime: '10:00', endTime: '11:00', subject: 'English' },
+    { day: 'Monday', startTime: '11:00', endTime: '12:00', subject: 'Science' },
+    { day: 'Tuesday', startTime: '09:00', endTime: '10:30', subject: 'Social Studies' },
+    { day: 'Tuesday', startTime: '10:30', endTime: '11:30', subject: 'Hindi' },
+    { day: 'Wednesday', startTime: '09:00', endTime: '10:30', subject: 'Mathematics' },
+    { day: 'Wednesday', startTime: '10:30', endTime: '11:15', subject: 'Art' },
+    { day: 'Wednesday', startTime: '11:15', endTime: '12:00', subject: 'Music' },
+    { day: 'Thursday', startTime: '10:00', endTime: '11:00', subject: 'Physical Ed.' },
+    { day: 'Friday', startTime: '09:00', endTime: '10:00', subject: 'English' },
+    { day: 'Friday', startTime: '10:00', endTime: '11:00', subject: 'Music' },
+    { day: 'Friday', startTime: '11:15', endTime: '12:45', subject: 'Break' },
+    { day: 'Saturday', startTime: '10:00', endTime: '12:00', subject: 'Extra Curricular' },
+  ];
+
+  const START_HOUR = 8;
+  const END_HOUR = 15;
+  const PIXELS_PER_HOUR = 80;
+
+  const timeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
 
   return (
     <Card>
@@ -32,7 +50,7 @@ export function TimetablePanel({ classData, sectionData, onClose }: TimetablePan
               Timetable
             </CardTitle>
             <CardDescription>
-              Schedule and manage class timings for {classData.name} - Section {sectionData.name}
+              Schedule for {classData.name} - Section {sectionData.name}
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -41,40 +59,59 @@ export function TimetablePanel({ classData, sectionData, onClose }: TimetablePan
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-5">
-            {days.map((day) => (
-              <div key={day} className="space-y-2">
-                <h4 className="font-medium text-sm">{day}</h4>
-                <div className="space-y-1">
-                  {timeSlots.map((time, index) => (
-                    <div key={time} className="p-2 bg-muted rounded text-xs">
-                      <div className="font-medium">{time}</div>
-                      <div className="text-muted-foreground">
-                        {getSubjectForSlot(index)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        <div className="grid grid-cols-[auto_1fr]" style={{ height: `${(END_HOUR - START_HOUR) * PIXELS_PER_HOUR}px` }}>
+          {/* Time Axis */}
+          <div className="w-16 text-right pr-2 text-xs text-muted-foreground relative">
+            {hours.map(hour => (
+              <div key={hour} className="relative" style={{ height: `${PIXELS_PER_HOUR}px` }}>
+                <span className="absolute -top-2.5 right-2">{`${hour}:00`}</span>
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Button size="sm">
-              <Plus className="h-3 w-3 mr-1" />
-              Add Period
-            </Button>
-            <Button size="sm" variant="outline">
-              <Calendar className="h-3 w-3 mr-1" />
-              Edit Schedule
-            </Button>
-            <Button size="sm" variant="outline">
-              <BookOpen className="h-3 w-3 mr-1" />
-              Export Timetable
-            </Button>
+
+          {/* Timetable Grid */}
+          <div className="grid grid-cols-6 gap-x-1 relative border-t border-border">
+            {days.map(day => (
+              <div key={day} className="border-l border-border relative">
+                <div className="text-center font-semibold text-sm py-2 border-b border-border">{day}</div>
+                {timetableData
+                  .filter(slot => slot.day === day)
+                  .map((slot, index) => {
+                    const startMinutes = timeToMinutes(slot.startTime);
+                    const endMinutes = timeToMinutes(slot.endTime);
+                    const top = ((startMinutes - START_HOUR * 60) / 60) * PIXELS_PER_HOUR;
+                    const height = ((endMinutes - startMinutes) / 60) * PIXELS_PER_HOUR;
+
+                    return (
+                      <div
+                        key={index}
+                        className="absolute p-2 rounded-lg text-xs border-l-4 bg-muted border-primary overflow-hidden w-[calc(100%-4px)] left-[2px]"
+                        style={{ top, height }}
+                        aria-label={`${slot.subject} from ${slot.startTime} to ${slot.endTime}`}
+                        tabIndex={0}
+                      >
+                        <div className="font-bold">{slot.subject}</div>
+                        <div className="text-muted-foreground">
+                          {slot.startTime} - {slot.endTime}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            ))}
           </div>
+        </div>
+        <div className="flex gap-2 mt-4">
+          <Button size="sm">
+            <Plus className="h-3 w-3 mr-1" />
+            Add Period
+          </Button>
+          <Button size="sm" variant="outline">
+            <Calendar className="h-3 w-3 mr-1" />
+            Edit Schedule
+          </Button>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
