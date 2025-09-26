@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useClasses } from '@/contexts/ClassesContext';
 import { useTeachers } from '@/contexts/TeachersContext';
 import { SubjectsProvider } from '@/contexts/SubjectsContext';
+import { TimetableProvider } from '@/contexts/TimeTableContext';
 import { Class, ClassSection } from '@/contexts/ClassesContext';
 import { StudentsPanel, SubjectsPanel, TimetablePanel, TeacherAssignment } from './components';
 
@@ -267,11 +268,15 @@ export default function ClassSectionPage() {
       )}
 
       {activePanel === 'timetable' && (
-        <TimetablePanel
-          classData={classData}
-          sectionData={sectionData}
-          onClose={closeAllPanels}
-        />
+        <SubjectsProvider>
+          <TimetableProvider>
+            <TimetablePanel
+              classData={classData}
+              sectionData={sectionData}
+              onClose={closeAllPanels}
+            />
+          </TimetableProvider>
+        </SubjectsProvider>
       )}
     </div>
   )
