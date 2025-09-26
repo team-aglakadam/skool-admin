@@ -1,7 +1,12 @@
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, Plus, X } from "lucide-react"
 import { ClassSection } from "@/types/database"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useTimetable } from "@/contexts/TimeTableContext";
+import { useSubjects } from '@/contexts/SubjectsContext';
+import { AddPeriodModal } from './add-period-modal';
 
 interface TimetablePanelProps {
   classData: { name: string }
@@ -10,24 +15,17 @@ interface TimetablePanelProps {
 }
 
 export function TimetablePanel({ classData, sectionData, onClose }: TimetablePanelProps) {
+  const { timetable: timetableData, loading, fetchTimetable } = useTimetable();
+  const { subjects, fetchSubjectsByClass } = useSubjects();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  // Placeholder data - this will be replaced with fetched data
-  const timetableData = [
-    { day: 'Monday', startTime: '09:00', endTime: '10:00', subject: 'Mathematics' },
-    { day: 'Monday', startTime: '10:00', endTime: '11:00', subject: 'English' },
-    { day: 'Monday', startTime: '11:00', endTime: '12:00', subject: 'Science' },
-    { day: 'Tuesday', startTime: '09:00', endTime: '10:30', subject: 'Social Studies' },
-    { day: 'Tuesday', startTime: '10:30', endTime: '11:30', subject: 'Hindi' },
-    { day: 'Wednesday', startTime: '09:00', endTime: '10:30', subject: 'Mathematics' },
-    { day: 'Wednesday', startTime: '10:30', endTime: '11:15', subject: 'Art' },
-    { day: 'Wednesday', startTime: '11:15', endTime: '12:00', subject: 'Music' },
-    { day: 'Thursday', startTime: '10:00', endTime: '11:00', subject: 'Physical Ed.' },
-    { day: 'Friday', startTime: '09:00', endTime: '10:00', subject: 'English' },
-    { day: 'Friday', startTime: '10:00', endTime: '11:00', subject: 'Music' },
-    { day: 'Friday', startTime: '11:15', endTime: '12:45', subject: 'Break' },
-    { day: 'Saturday', startTime: '10:00', endTime: '12:00', subject: 'Extra Curricular' },
-  ];
+      useEffect(() => {
+    if (sectionData.id) {
+      fetchTimetable(sectionData.id);
+      fetchSubjectsByClass(sectionData.id);
+    }
+  }, [sectionData.id, fetchTimetable, fetchSubjectsByClass]);
 
   const START_HOUR = 8;
   const END_HOUR = 15;
@@ -59,50 +57,60 @@ export function TimetablePanel({ classData, sectionData, onClose }: TimetablePan
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-[auto_1fr]" style={{ height: `${(END_HOUR - START_HOUR) * PIXELS_PER_HOUR}px` }}>
-          {/* Time Axis */}
-          <div className="w-16 text-right pr-2 text-xs text-muted-foreground relative">
-            {hours.map(hour => (
-              <div key={hour} className="relative" style={{ height: `${PIXELS_PER_HOUR}px` }}>
-                <span className="absolute -top-2.5 right-2">{`${hour}:00`}</span>
+        <div className="min-h-[300px]">
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-[auto_1fr]" style={{ height: `${(END_HOUR - START_HOUR) * PIXELS_PER_HOUR}px` }}>
+              {/* Time Axis */}
+              <div className="w-16 text-right pr-2 text-xs text-muted-foreground relative">
+                {hours.map(hour => (
+                  <div key={hour} className="relative" style={{ height: `${PIXELS_PER_HOUR}px` }}>
+                    <span className="absolute -top-2.5 right-2">{`${hour}:00`}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Timetable Grid */}
-          <div className="grid grid-cols-6 gap-x-1 relative border-t border-border">
-            {days.map(day => (
-              <div key={day} className="border-l border-border relative">
-                <div className="text-center font-semibold text-sm py-2 border-b border-border">{day}</div>
-                {timetableData
-                  .filter(slot => slot.day === day)
-                  .map((slot, index) => {
-                    const startMinutes = timeToMinutes(slot.startTime);
-                    const endMinutes = timeToMinutes(slot.endTime);
-                    const top = ((startMinutes - START_HOUR * 60) / 60) * PIXELS_PER_HOUR;
-                    const height = ((endMinutes - startMinutes) / 60) * PIXELS_PER_HOUR;
+              {/* Timetable Grid */}
+              <div className="grid grid-cols-6 gap-x-1 relative border-t border-border">
+                {days.map(day => (
+                  <div key={day} className="border-l border-border relative">
+                    <div className="text-center font-semibold text-sm py-2 border-b border-border">{day}</div>
+                    {timetableData
+                      .filter(slot => slot.day === day)
+                      .map((slot, index) => {
+                        const startMinutes = timeToMinutes(slot.startTime);
+                        const endMinutes = timeToMinutes(slot.endTime);
+                        const top = ((startMinutes - START_HOUR * 60) / 60) * PIXELS_PER_HOUR;
+                        const height = ((endMinutes - startMinutes) / 60) * PIXELS_PER_HOUR;
 
-                    return (
-                      <div
-                        key={index}
-                        className="absolute p-2 rounded-lg text-xs border-l-4 bg-muted border-primary overflow-hidden w-[calc(100%-4px)] left-[2px]"
-                        style={{ top, height }}
-                        aria-label={`${slot.subject} from ${slot.startTime} to ${slot.endTime}`}
-                        tabIndex={0}
-                      >
-                        <div className="font-bold">{slot.subject}</div>
-                        <div className="text-muted-foreground">
-                          {slot.startTime} - {slot.endTime}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        return (
+                          <div
+                            key={index}
+                            className="absolute p-2 rounded-lg text-xs border-l-4 bg-muted border-primary overflow-hidden w-[calc(100%-4px)] left-[2px]"
+                            style={{ top, height }}
+                            aria-label={`${slot.subject} from ${slot.startTime} to ${slot.endTime}`}
+                            tabIndex={0}
+                          >
+                            <div className="font-bold">{slot.subject}</div>
+                            <div className="text-muted-foreground">
+                              {slot.startTime} - {slot.endTime}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-4">
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsModalOpen(true)}>
             <Plus className="h-3 w-3 mr-1" />
             Add Period
           </Button>
@@ -112,6 +120,13 @@ export function TimetablePanel({ classData, sectionData, onClose }: TimetablePan
           </Button>
         </div>
       </CardContent>
+      <AddPeriodModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        subjects={subjects}
+        classId={sectionData.id}
+        onPeriodAdded={() => fetchTimetable(sectionData.id)}
+      />
     </Card>
   );
 }
