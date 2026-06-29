@@ -141,7 +141,6 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
   const saveAttendanceMutation = useMutation({
     mutationFn: async (data: {
       attendanceData: WeeklyAttendanceData[];
-      marked_by_admin_id: string;
     }) => {
       try {
         return await saveAttendance(data);
@@ -380,7 +379,6 @@ const WeeklyAttendanceUpdate: React.FC<WeeklyAttendanceUpdateProps> = ({
     try {
       await saveAttendanceMutation.mutateAsync({
         attendanceData: attendanceArray,
-        marked_by_admin_id: user.id,
       });
       // After successful save, disable editing for saved dates
       setEditableDates(new Set());
