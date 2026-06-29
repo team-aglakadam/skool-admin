@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Slot } from "radix-ui"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { Slot } from "@radix-ui/react-slot"
 import {
   Controller,
   FormProvider,
@@ -89,7 +90,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 function FormLabel({
   className,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof LabelPrimitive.Root>) {
   const { error, formItemId } = useFormField()
 
   return (
@@ -103,11 +104,11 @@ function FormLabel({
   )
 }
 
-function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
+function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
 
   return (
-    <Slot.Root
+    <Slot
       data-slot="form-control"
       id={formItemId}
       aria-describedby={
@@ -128,7 +129,7 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="form-description"
       id={formDescriptionId}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-muted-foreground text-sm", className)}
       {...props}
     />
   )
@@ -146,7 +147,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="form-message"
       id={formMessageId}
-      className={cn("text-sm text-destructive", className)}
+      className={cn("text-destructive text-sm", className)}
       {...props}
     >
       {body}
