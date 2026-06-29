@@ -1,3 +1,6 @@
+"use client";
+
+import { FeatureGate } from '@/components/FeatureGate'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +47,7 @@ export default function AttendancePage() {
   ]
 
   return (
+    <FeatureGate feature="attendance">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -157,5 +161,6 @@ export default function AttendancePage() {
         </TabsContent>
       </Tabs>
     </div>
+    </FeatureGate>
   )
-} 
+}
