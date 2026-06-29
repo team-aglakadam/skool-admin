@@ -7,20 +7,49 @@ type TeacherAttendanceData = {
   status: "present" | "absent" | "leave";
   remarks?: string;
   marked_by_admin_id: string;
+  school_id: string;
   event_id?: string;
 };
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const body = await request.json();
-    const { attendanceData, date, marked_by_admin_id } = body;
 
-    if (
-      !attendanceData ||
-      !Array.isArray(attendanceData) ||
-      !marked_by_admin_id
-    ) {
+    // Auth check
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const schoolId = user.user_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: "No school associated with this user" },
+        { status: 400 }
+      );
+    }
+
+    // Role check — only admins can mark attendance
+    const { data: userData } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!userData || userData.role !== "admin") {
+      return NextResponse.json(
+        { error: "Only school admins can mark teacher attendance" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { attendanceData, date } = body;
+
+    if (!attendanceData || !Array.isArray(attendanceData)) {
       return NextResponse.json(
         { error: "Invalid request data", message: "Missing required fields" },
         { status: 400 }
@@ -30,15 +59,16 @@ export async function POST(request: NextRequest) {
     // Format the attendance data for insertion
     // Handle both single-date (daily) and multi-date (weekly) scenarios
     const formattedAttendance: TeacherAttendanceData[] = attendanceData.map(
-      (item) => ({
+      (item: { teacherId: string; date?: string; status: string; notes?: string }) => ({
         teacher_id: item.teacherId,
-        date: item.date || date, // Use item.date if provided (weekly), otherwise use root date (daily)
+        date: item.date || date,
         status:
           item.status === "sick" || item.status === "personal"
             ? "leave"
             : item.status,
         remarks: item.notes,
-        marked_by_admin_id,
+        marked_by_admin_id: user.id, // Server-derived, not from client
+        school_id: schoolId,
       })
     );
 
@@ -62,6 +92,7 @@ export async function POST(request: NextRequest) {
         .select("id")
         .eq("teacher_id", attendance.teacher_id)
         .eq("date", attendance.date)
+        .eq("school_id", schoolId)
         .single();
 
       if (existingRecord) {
@@ -71,11 +102,12 @@ export async function POST(request: NextRequest) {
           .update({
             status: attendance.status,
             remarks: attendance.remarks,
-            marked_by_admin_id: attendance.marked_by_admin_id,
+            marked_by_admin_id: user.id,
             last_updated_at: new Date().toISOString(),
           })
           .eq("teacher_id", attendance.teacher_id)
-          .eq("date", attendance.date);
+          .eq("date", attendance.date)
+          .eq("school_id", schoolId);
 
         if (updateError) {
           console.error("Error updating attendance:", updateError);
@@ -116,6 +148,24 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+
+    // Auth check
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const schoolId = user.user_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: "No school associated with this user" },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
     const startDate = searchParams.get("startDate");
@@ -130,8 +180,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    //need to update logic again, apply filters with teacherIds
-    let query = supabase.from("teacher_attendance").select(`
+
+    let query = supabase
+      .from("teacher_attendance")
+      .select(
+        `
         id,
         teacher_id,
         date,
@@ -140,6 +193,7 @@ export async function GET(request: NextRequest) {
         marked_by_admin_id,
         last_updated_at,
         event_id,
+        school_id,
         teachers (
           id,
           user_id,
@@ -153,7 +207,9 @@ export async function GET(request: NextRequest) {
           full_name,
           email
         )
-      `);
+      `
+      )
+      .eq("school_id", schoolId);
 
     if (date) {
       query = query.eq("date", date);
