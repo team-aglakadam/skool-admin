@@ -207,7 +207,6 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
       await saveAttendance({
         attendanceData: attendanceArray,
         date: format(selectedDate, "yyyy-MM-dd"),
-        marked_by_admin_id: user?.id,
       });
       toast.success("Attendance saved successfully!");
 
@@ -286,7 +285,6 @@ const DailyAttendanceUpdate: React.FC<DailyAttendanceUpdateProps> = ({
       await saveAttendance({
         attendanceData: attendanceArray,
         date: format(selectedDate, "yyyy-MM-dd"),
-        marked_by_admin_id: user?.id,
       });
       toast.success("Bulk attendance saved successfully!");
       setHasBulkChanges(false);
